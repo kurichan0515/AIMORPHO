@@ -8,6 +8,10 @@ let _jwtSecret = null;
 
 const getJwtSecret = async () => {
   if (_jwtSecret) return _jwtSecret;
+  if (process.env.JWT_SECRET) {
+    _jwtSecret = process.env.JWT_SECRET;
+    return _jwtSecret;
+  }
   const r = await sm.send(new GetSecretValueCommand({ SecretId: 'yasrun/jwt-secret' }));
   _jwtSecret = JSON.parse(r.SecretString).JWT_SECRET;
   return _jwtSecret;

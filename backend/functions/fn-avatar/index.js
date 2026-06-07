@@ -1,10 +1,10 @@
-const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { ok, error } = require('/opt/layer-auth');
 const { get, put, update } = require('/opt/layer-db');
+const { s3 } = require('/opt/layer-db/s3-client');
 const { generateContent, GEMINI_VISION_MODEL } = require('/opt/layer-gemini');
 
-const s3 = new S3Client({ region: process.env.AWS_REGION || 'ap-northeast-1' });
 const BUCKET = process.env.S3_BUCKET || 'yasrun-images';
 
 exports.handler = async (event) => {

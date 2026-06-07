@@ -1,5 +1,9 @@
 # Node.js
 node_modules/
+
+# ローカル環境変数 (シークレット含む)
+backend/.env.local
+mobile/.env.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

@@ -1,7 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = process.env.API_BASE_URL || 'https://YOUR_API_GATEWAY_URL/prod';
+// ローカル開発: .env.local の API_BASE_URL を参照
+// Android Emulator からは 10.0.2.2:3000 に変更
+// iOS Simulator は localhost:3000 のまま
+const BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:3000';
 
 const api = axios.create({ baseURL: BASE_URL });
 

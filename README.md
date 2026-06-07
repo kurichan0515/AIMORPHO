@@ -64,17 +64,66 @@ YASRUN/
 
 **回復条件**: 3日連続ログイン + 全日運動記録(completed:true) + 直近3日平均摂取kcal ≤ TDEE → body_state -1
 
-## 開発環境セットアップ
+## ローカル開発 (無料・AWS不要)
+
+### 前提
+- Docker / Docker Compose
+- Node.js 20+
+
+### 起動手順
 
 ```bash
-# 依存関係インストール (backend)
+# 1. Docker起動 (DynamoDB Local + LocalStack S3)
+docker compose up dynamodb-local localstack -d
+
+# 2. 環境変数設定
+cp backend/.env.local.example backend/.env.local
+# GEMINI_API_KEY= のままでもモックで動く
+# 実際に使う場合は Google AI Studio でAPIキーを取得して設定
+
+# 3. 依存関係インストール
 cd backend && npm install
 
+# 4. DB初期化 + APIサーバー起動
+npm run start:local
+# → http://localhost:3000 で起動
+
+# 5. 動作確認
+curl http://localhost:3000/health
+
+# ユニットテスト
+npm test
+
+# 統合テスト (DynamoDB Local起動中に実行)
+DYNAMODB_ENDPOINT=http://localhost:8000 JWT_SECRET=test-secret \
+  npx jest --testPathPattern=integration
+```
+
+### モバイル開発
+
+```bash
+cd mobile && npm install
+
+# iOS Simulator (APIはlocalhost:3000を向く)
+npx react-native run-ios
+
+# Android Emulator (localhost → 10.0.2.2 に変更が必要)
+# mobile/src/api/client.ts の BASE_URL を http://10.0.2.2:3000 に変更
+npx react-native run-android
+```
+
+### Gemini API（オプション）
+- 未設定でもモックレスポンスで食事解析・AIアドバイス機能が動く
+- 実際のAIを使いたい場合: [Google AI Studio](https://aistudio.google.com) でAPIキーを取得し `backend/.env.local` の `GEMINI_API_KEY=` に設定
+
+## 本番デプロイ
+
+```bash
 # Terraform初期化
 cd infrastructure && terraform init
 
-# モバイル開発
-cd mobile && npm install && npx react-native run-ios
+# デプロイ (GitHub Actions mainマージで自動実行)
+cd backend && npm run deploy:layers && npm run deploy:functions
 ```
 
 ## コスト目安 (500 DAU)

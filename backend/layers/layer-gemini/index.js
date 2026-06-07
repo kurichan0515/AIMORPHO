@@ -6,6 +6,10 @@ let _apiKey = null;
 
 const getApiKey = async () => {
   if (_apiKey) return _apiKey;
+  if (process.env.GEMINI_API_KEY) {
+    _apiKey = process.env.GEMINI_API_KEY;
+    return _apiKey;
+  }
   const r = await sm.send(new GetSecretValueCommand({ SecretId: 'yasrun/gemini-api-key' }));
   _apiKey = JSON.parse(r.SecretString).GEMINI_API_KEY;
   return _apiKey;
@@ -15,7 +19,17 @@ const GEMINI_MODEL       = 'gemini-2.0-flash';
 const GEMINI_VISION_MODEL = 'gemini-2.0-flash';
 
 const generateContent = async (contents, model = GEMINI_MODEL) => {
-  const apiKey = await getApiKey();
+  const apiKey = await getApiKey().catch(() => null);
+  // APIキー未設定 → モックレスポンス返す（ローカル開発用）
+  if (!apiKey) {
+    return {
+      candidates: [{
+        content: {
+          parts: [{ text: '{"menu_name":"テスト料理","kcal":500,"protein_g":20,"fat_g":15,"carb_g":60,"confidence":"low"}' }],
+        },
+      }],
+    };
+  }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',

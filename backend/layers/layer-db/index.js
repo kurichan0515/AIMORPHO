@@ -3,8 +3,18 @@ const { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, DeleteCom
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'yasrun';
 
-const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'ap-northeast-1' });
-const db = DynamoDBDocumentClient.from(client);
+const clientConfig = { region: process.env.AWS_REGION || 'ap-northeast-1' };
+if (process.env.DYNAMODB_ENDPOINT) {
+  clientConfig.endpoint = process.env.DYNAMODB_ENDPOINT;
+  clientConfig.credentials = {
+    accessKeyId:     process.env.AWS_ACCESS_KEY_ID     || 'local',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'local',
+  };
+}
+const client = new DynamoDBClient(clientConfig);
+const db = DynamoDBDocumentClient.from(client, {
+  marshallOptions: { removeUndefinedValues: true },
+});
 
 const get = (pk, sk) =>
   db.send(new GetCommand({ TableName: TABLE_NAME, Key: { PK: pk, SK: sk } }))
@@ -28,7 +38,7 @@ const remove = (pk, sk) =>
 
 const query = (params) =>
   db.send(new QueryCommand({ TableName: TABLE_NAME, ...params }))
-    .then(r => r.Items);
+    .then(r => r.Items ?? []);
 
 // 翌日JST 0時のepoch秒 (TTL用)
 const nextDayJSTEpoch = () => {
