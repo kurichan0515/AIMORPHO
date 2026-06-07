@@ -12,6 +12,11 @@
     "functions/*",
     "layers/*"
   ],
+  "jest": {
+    "testMatch": ["**/tests/**/*.test.js"],
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": ["layers/**/*.js", "functions/**/*.js"]
+  },
   "devDependencies": {
     "eslint": "^8.57.0",
     "jest": "^29.7.0"

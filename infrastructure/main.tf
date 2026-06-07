@@ -32,10 +32,11 @@ module "s3" {
 }
 
 module "iam" {
-  source           = "./modules/iam"
-  environment      = var.environment
-  dynamodb_table_arn = module.dynamodb.table_arn
-  s3_bucket_arn    = module.s3.bucket_arn
+  source              = "./modules/iam"
+  environment         = var.environment
+  dynamodb_table_arn  = module.dynamodb.table_arn
+  s3_bucket_arn       = module.s3.bucket_arn
+  lambda_code_bucket_arn = module.s3.lambda_code_bucket_arn
 }
 
 module "secrets" {
@@ -44,12 +45,13 @@ module "secrets" {
 }
 
 module "lambda" {
-  source           = "./modules/lambda"
-  environment      = var.environment
-  lambda_role_arn  = module.iam.lambda_role_arn
-  s3_bucket_name   = var.s3_bucket_name
-  dynamodb_table   = var.dynamodb_table_name
-  aws_region       = var.aws_region
+  source              = "./modules/lambda"
+  environment         = var.environment
+  lambda_role_arn     = module.iam.lambda_role_arn
+  s3_bucket_name      = module.s3.lambda_code_bucket
+  s3_images_bucket    = var.s3_bucket_name
+  dynamodb_table      = var.dynamodb_table_name
+  aws_region          = var.aws_region
 
   depends_on = [module.iam, module.dynamodb, module.s3, module.secrets]
 }

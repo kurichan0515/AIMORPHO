@@ -32,3 +32,22 @@ resource "aws_s3_bucket_public_access_block" "images" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
+# Lambda コード用バケット（画像バケットと分離）
+resource "aws_s3_bucket" "lambda_code" {
+  bucket = "${var.bucket_name}-lambda-code"
+  tags   = { Environment = var.environment, Project = "yasrun" }
+}
+
+resource "aws_s3_bucket_public_access_block" "lambda_code" {
+  bucket                  = aws_s3_bucket.lambda_code.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "lambda_code" {
+  bucket = aws_s3_bucket.lambda_code.id
+  versioning_configuration { status = "Enabled" }
+}

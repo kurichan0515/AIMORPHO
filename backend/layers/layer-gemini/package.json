@@ -1,0 +1,9 @@
+{
+  "name": "layer-gemini",
+  "version": "1.0.0",
+  "description": "Gemini API client and prompt templates",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.600.0"
+  }
+}

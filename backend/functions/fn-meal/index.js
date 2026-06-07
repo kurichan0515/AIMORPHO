@@ -2,6 +2,7 @@ const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/clien
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { ok, error } = require('/opt/layer-auth');
 const { put, query } = require('/opt/layer-db');
+const { checkCountBadges } = require('/opt/layer-db/badge-service');
 const { analyzeMeal } = require('/opt/layer-gemini');
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || 'ap-northeast-1' });
@@ -61,7 +62,14 @@ async function analyzeMealLog(userId, { s3Key }) {
     recordedAt: now,
   });
 
-  return ok({ ...result, recordedAt: now }, 201);
+  const mealLogs = await query({
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+    ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':prefix': 'MEAL#' },
+    Select: 'COUNT',
+  });
+  const newBadges = await checkCountBadges(userId, 'meal', mealLogs.length);
+
+  return ok({ ...result, recordedAt: now, newBadges }, 201);
 }
 
 async function getMealHistory(userId, { from, to, limit = '30' }) {

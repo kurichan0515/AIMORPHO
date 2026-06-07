@@ -11,9 +11,10 @@ locals {
   }
   layers = ["layer-db", "layer-auth", "layer-gemini"]
   common_env = {
-    DYNAMODB_TABLE = var.dynamodb_table
-    S3_BUCKET      = var.s3_bucket_name
-    AWS_REGION_ENV = var.aws_region
+    DYNAMODB_TABLE   = var.dynamodb_table
+    S3_BUCKET        = var.s3_images_bucket
+    S3_BUCKET_CODE   = var.s3_bucket_name
+    AWS_REGION_ENV   = var.aws_region
   }
 }
 

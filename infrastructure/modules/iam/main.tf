@@ -31,10 +31,16 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Resource = [var.dynamodb_table_arn, "${var.dynamodb_table_arn}/index/*"]
       },
       {
-        Sid    = "S3"
+        Sid    = "S3Images"
         Effect = "Allow"
         Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
         Resource = "${var.s3_bucket_arn}/*"
+      },
+      {
+        Sid    = "S3LambdaCode"
+        Effect = "Allow"
+        Action = ["s3:GetObject"]
+        Resource = "${var.lambda_code_bucket_arn}/*"
       },
       {
         Sid    = "SecretsManager"
