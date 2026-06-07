@@ -15,6 +15,7 @@ exports.handler = async (event) => {
   try {
     if (path === '/groups'                         && httpMethod === 'POST')   return createGroup(userId, body);
     if (path === '/groups/join'                    && httpMethod === 'POST')   return joinGroup(userId, body);
+    if (path === '/groups/me'                      && httpMethod === 'GET')    return getMyGroups(userId);
     if (path === `/groups/${groupId}`              && httpMethod === 'GET')    return getGroup(userId, groupId);
     if (path === `/groups/${groupId}/feed`         && httpMethod === 'GET')    return getGroupFeed(userId, groupId);
     if (path === `/groups/${groupId}/leave`        && httpMethod === 'DELETE') return leaveGroup(userId, groupId);
@@ -144,4 +145,21 @@ async function leaveGroup(userId, groupId) {
 
   await remove(`GROUP#${groupId}`, `MEMBER#${userId}`);
   return ok({ message: 'left group' });
+}
+
+async function getMyGroups(userId) {
+  const { DynamoDBDocumentClient, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+  const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+  const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+
+  const res = await client.send(new QueryCommand({
+    TableName: TABLE_NAME,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `USER#${userId}` },
+  }));
+
+  const groupIds = (res.Items || []).map(item => item.GSI1SK?.replace('GROUP#', '')).filter(Boolean);
+  const groups = await Promise.all(groupIds.map(id => get(`GROUP#${id}`, 'META')));
+  return ok(groups.filter(Boolean));
 }

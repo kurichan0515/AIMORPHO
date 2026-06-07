@@ -1,6 +1,6 @@
 const { ok, error } = require('/opt/layer-auth');
 const { get, put, query, update, nextDayJSTEpoch } = require('/opt/layer-db');
-const { generateDailyAdvice } = require('/opt/layer-gemini');
+const { generateDailyAdvice, generateInterrogationMessage } = require('/opt/layer-gemini');
 
 exports.handler = async (event) => {
   const { httpMethod, path, body: rawBody, requestContext } = event;
@@ -114,8 +114,13 @@ async function handlePenaltyEvent(userId, { answer }) {
     return ok({ event: 'penalty', result: 'lash_and_degrade', newBodyState, missedDays });
   }
 
-  // まだ回答なし → 尋問イベントを返す
-  return ok({ event: 'interrogation', missedDays, question: `この${missedDays}日間、運動はしたか？` });
+  // まだ回答なし → AI生成の尋問メッセージ
+  const profile = await get(`USER#${userId}`, 'PROFILE');
+  const question = await generateInterrogationMessage({
+    missedDays,
+    aiTone: profile?.aiTone || 'friendly',
+  }).catch(() => `この${missedDays}日間、運動はしましたか？`);
+  return ok({ event: 'interrogation', missedDays, question });
 }
 
 async function getGoalMessage(userId) {

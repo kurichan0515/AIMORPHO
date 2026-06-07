@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
 import { getDailyAdvice, sendPenaltyAnswer } from '../api/ai';
+import api from '../api/client';
 import { useAvatarStore } from '../store/useAvatarStore';
 
 export default function HomeScreen() {
+  const navigation = useNavigation<any>();
   const { bodyState, avatarImages } = useAvatarStore();
   const [showInterrogation, setShowInterrogation] = useState(false);
   const [interrogationMsg, setInterrogationMsg] = useState('');
