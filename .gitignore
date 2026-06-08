@@ -21,6 +21,7 @@ override.tf.json
 # 環境変数・シークレット
 .env
 .env.*
+!.env.*.example
 *.p12
 *.jks
 *.keystore

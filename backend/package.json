@@ -3,23 +3,29 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "lint": "eslint 'functions/**/*.js' 'layers/**/*.js'",
+    "build": "tsc --project tsconfig.json",
+    "build:watch": "tsc --project tsconfig.json --watch",
+    "lint": "eslint 'src/**/*.ts' 'functions/**/*.ts'",
     "test": "jest --coverage",
-    "dev": "node --watch local/server.js",
-    "setup:local": "node local/setup-db.js",
+    "dev": "ts-node --transpile-only local/server.ts",
+    "setup:local": "ts-node --transpile-only local/setup-db.ts",
     "start:local": "npm run setup:local && npm run dev",
     "deploy:layers": "bash scripts/deploy-layers.sh",
     "deploy:functions": "bash scripts/deploy-functions.sh"
   },
-  "workspaces": [
-    "functions/*",
-    "layers/*"
-  ],
   "jest": {
-    "testMatch": ["**/tests/**/*.test.js"],
-    "testPathIgnorePatterns": ["/tests/integration/"],
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "/tests/integration/"
+    ],
     "coverageDirectory": "coverage",
-    "collectCoverageFrom": ["layers/**/*.js", "functions/**/*.js"]
+    "collectCoverageFrom": [
+      "src/**/*.ts"
+    ]
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.600.0",
@@ -34,8 +40,19 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.0",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
     "jest": "^29.7.0",
-    "supertest": "^7.0.0"
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
   }
 }

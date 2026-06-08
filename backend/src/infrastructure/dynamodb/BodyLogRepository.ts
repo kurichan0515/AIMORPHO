@@ -1,0 +1,88 @@
+import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { db, TABLE_NAME } from './client';
+import { IBodyLogRepository } from '../../domain/body-log/IBodyLogRepository';
+import { WeightLog } from '../../domain/body-log/WeightLog';
+import { ExerciseLog } from '../../domain/body-log/ExerciseLog';
+import { UserId, DateString } from '../../domain/shared/types';
+
+export class BodyLogRepository implements IBodyLogRepository {
+  async saveWeight(log: WeightLog): Promise<void> {
+    await db.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `USER#${log.userId}`,
+        SK: `WEIGHT#${log.recordedAt}`,
+        weightKg: log.weightKg,
+        recordedAt: log.recordedAt,
+      },
+    }));
+  }
+
+  async getWeightHistory(userId: UserId, from: DateString, to: DateString, limit: number): Promise<WeightLog[]> {
+    const r = await db.send(new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND SK BETWEEN :from AND :to',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':from': `WEIGHT#${from}`, ':to': `WEIGHT#${to}` },
+      ScanIndexForward: false,
+      Limit: limit,
+    }));
+    return (r.Items ?? []).map(i => ({ userId, weightKg: i.weightKg, recordedAt: i.recordedAt }));
+  }
+
+  async saveExercise(log: ExerciseLog): Promise<void> {
+    await db.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `USER#${log.userId}`,
+        SK: `EXERCISE#${log.recordedAt}`,
+        exerciseName: log.exerciseName,
+        durationMin: log.durationMin,
+        kcalBurned: log.kcalBurned,
+        completed: log.completed,
+        recordedAt: log.recordedAt,
+      },
+    }));
+  }
+
+  async getExerciseHistory(userId: UserId, from: DateString, to: DateString, limit: number): Promise<ExerciseLog[]> {
+    const r = await db.send(new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND SK BETWEEN :from AND :to',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':from': `EXERCISE#${from}`, ':to': `EXERCISE#${to}` },
+      ScanIndexForward: false,
+      Limit: limit,
+    }));
+    return (r.Items ?? []).map(i => this.#mapExercise(userId, i));
+  }
+
+  async countExercise(userId: UserId): Promise<number> {
+    const r = await db.send(new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':prefix': 'EXERCISE#' },
+      Select: 'COUNT',
+    }));
+    return r.Count ?? 0;
+  }
+
+  async getRecentExercise(userId: UserId, since: DateString): Promise<ExerciseLog[]> {
+    const r = await db.send(new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND SK BETWEEN :from AND :to',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':from': `EXERCISE#${since}`, ':to': 'EXERCISE#9999' },
+      ScanIndexForward: false,
+    }));
+    return (r.Items ?? []).map(i => this.#mapExercise(userId, i));
+  }
+
+  #mapExercise(userId: UserId, i: Record<string, unknown>): ExerciseLog {
+    return {
+      userId,
+      exerciseName: i.exerciseName as string,
+      durationMin: i.durationMin as number,
+      kcalBurned: i.kcalBurned as number,
+      completed: i.completed as boolean,
+      recordedAt: i.recordedAt as string,
+    };
+  }
+}
