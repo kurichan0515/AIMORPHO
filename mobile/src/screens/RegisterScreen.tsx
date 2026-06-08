@@ -6,7 +6,6 @@ import { useAuthStore } from '../store/useAuthStore';
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
   const { register } = useAuthStore();
-  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,7 +15,7 @@ export default function RegisterScreen() {
     if (password.length < 8) { Alert.alert('エラー', 'パスワードは8文字以上'); return; }
     setLoading(true);
     try {
-      await register(email, password, displayName);
+      await register(email, password);
     } catch (e: any) {
       const msg = e.response?.status === 409 ? 'このメールは登録済みです' : '登録に失敗しました';
       Alert.alert('エラー', msg);
@@ -29,7 +28,6 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>アカウント作成</Text>
-        <TextInput style={styles.input} placeholder="ニックネーム（任意）" value={displayName} onChangeText={setDisplayName} />
         <TextInput style={styles.input} placeholder="メールアドレス" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
         <TextInput style={styles.input} placeholder="パスワード（8文字以上）" value={password} onChangeText={setPassword} secureTextEntry />
         <TouchableOpacity style={styles.btn} onPress={submit} disabled={loading}>

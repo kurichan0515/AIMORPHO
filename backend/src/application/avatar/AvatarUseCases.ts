@@ -20,7 +20,14 @@ export const getAvatarUploadUrl = async (userId: UserId) => {
   return { data: { uploadUrl, s3Key: key }, statusCode: 200 } as const;
 };
 
+export const MAX_AVATAR_GENERATES = 2;
+
 export const generateAvatar = async (deps: Deps, userId: UserId, facePhotoKey: string) => {
+  const current = await deps.avatarRepo.get(userId);
+  if ((current?.regenerateCount ?? 0) >= MAX_AVATAR_GENERATES) {
+    return { error: 'limit_reached', statusCode: 403 } as const;
+  }
+
   const base64Face = await getObjectBase64(facePhotoKey);
   const avatarImages: Partial<Record<number, string | null>> = {};
   const errors: Array<{ state: number; error: string }> = [];
@@ -38,7 +45,6 @@ export const generateAvatar = async (deps: Deps, userId: UserId, facePhotoKey: s
   }
 
   const now = new Date().toISOString();
-  const current = await deps.avatarRepo.get(userId);
   const avatar: Avatar = {
     userId,
     facePhotoKey,

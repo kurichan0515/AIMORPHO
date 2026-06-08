@@ -14,10 +14,14 @@ import GroupScreen from '../screens/GroupScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import OnboardingProfileScreen from '../screens/OnboardingProfileScreen';
+import OnboardingGoalScreen from '../screens/OnboardingGoalScreen';
+import OnboardingAvatarScreen from '../screens/OnboardingAvatarScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const LogStack = createNativeStackNavigator();
+const OnboardingStack = createNativeStackNavigator();
 
 function LogStackNavigator() {
   return (
@@ -52,21 +56,33 @@ function MainTabs() {
   );
 }
 
+function OnboardingNavigator() {
+  return (
+    <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+      <OnboardingStack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
+      <OnboardingStack.Screen name="OnboardingGoal"    component={OnboardingGoalScreen} />
+      <OnboardingStack.Screen name="OnboardingAvatar"  component={OnboardingAvatarScreen} />
+    </OnboardingStack.Navigator>
+  );
+}
+
 export default function AppNavigator() {
-  const { isLoggedIn } = useAuthStore();
+  const { isLoggedIn, onboardingCompleted } = useAuthStore();
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isLoggedIn ? (
-          <>
-            <Stack.Screen name="Main"   component={MainTabs} />
-            <Stack.Screen name="Badges" component={BadgesScreen} options={{ headerShown: true, title: 'バッジ一覧', headerShown: true }} />
-          </>
-        ) : (
+        {!isLoggedIn ? (
           <>
             <Stack.Screen name="Login"    component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        ) : !onboardingCompleted ? (
+          <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
+        ) : (
+          <>
+            <Stack.Screen name="Main"   component={MainTabs} />
+            <Stack.Screen name="Badges" component={BadgesScreen} options={{ headerShown: true, title: 'バッジ一覧' }} />
           </>
         )}
       </Stack.Navigator>
