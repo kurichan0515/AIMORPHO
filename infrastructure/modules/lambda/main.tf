@@ -20,7 +20,7 @@ locals {
 
 resource "aws_lambda_layer_version" "layers" {
   for_each            = toset(local.layers)
-  layer_name          = "yasrun-${each.key}-${var.environment}"
+  layer_name          = "aimorpho-${each.key}-${var.environment}"
   s3_bucket           = var.s3_bucket_name
   s3_key              = "lambda-code/${each.key}.zip"
   compatible_runtimes = ["nodejs20.x"]
@@ -29,7 +29,7 @@ resource "aws_lambda_layer_version" "layers" {
 resource "aws_lambda_function" "functions" {
   for_each = local.functions
 
-  function_name = "yasrun-${each.key}-${var.environment}"
+  function_name = "aimorpho-${each.key}-${var.environment}"
   role          = var.lambda_role_arn
   handler       = "index.handler"
   runtime       = "nodejs20.x"
@@ -48,7 +48,7 @@ resource "aws_lambda_function" "functions" {
     variables = local.common_env
   }
 
-  tags = { Environment = var.environment, Project = "yasrun" }
+  tags = { Environment = var.environment, Project = "aimorpho" }
 }
 
 resource "aws_lambda_provisioned_concurrency_config" "provisioned" {
@@ -61,7 +61,7 @@ resource "aws_lambda_provisioned_concurrency_config" "provisioned" {
 
 resource "aws_cloudwatch_log_group" "functions" {
   for_each          = local.functions
-  name              = "/aws/lambda/yasrun-${each.key}-${var.environment}"
+  name              = "/aws/lambda/aimorpho-${each.key}-${var.environment}"
   retention_in_days = 14
-  tags              = { Environment = var.environment, Project = "yasrun" }
+  tags              = { Environment = var.environment, Project = "aimorpho" }
 }

@@ -67,7 +67,7 @@ export default function GroupScreen() {
 
   const shareInvite = () => {
     if (!group?.inviteCode) return;
-    Share.share({ message: `YASERUNグループ「${group.name}」に参加！招待コード: ${group.inviteCode}` });
+    Share.share({ message: `一緒に体型変化ジャーニーを歩もう！AIMORPHOグループ「${group.name}」招待コード: ${group.inviteCode}` });
   };
 
   return (

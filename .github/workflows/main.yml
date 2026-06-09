@@ -171,7 +171,7 @@ jobs:
         with:
           payload: |
             {
-              "text": ":white_check_mark: YASRUN デプロイ完了 | ${{ github.sha }}"
+              "text": ":white_check_mark: AIMORPHO デプロイ完了 | ${{ github.sha }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -182,7 +182,7 @@ jobs:
         with:
           payload: |
             {
-              "text": ":x: YASRUN デプロイ失敗 | ${{ github.sha }}"
+              "text": ":x: AIMORPHO デプロイ失敗 | ${{ github.sha }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

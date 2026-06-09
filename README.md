@@ -1,13 +1,14 @@
-# YASRUN - AIアバター連動型ダイエットサポートアプリ
+# AIMORPHO - AIアバター連動型ボディジャーニーアプリ
 
-アバターと二人三脚で目標達成を目指すヘルスケアアプリ。
+AI分身アバターと共に、あなただけの体型変化ジャーニーを歩むアプリ。
 
 ## コンセプト
 
-ダイエットの「モチベーション維持」困難を以下で解決:
+「痩せたい・太りたい・筋肉をつけたい」すべてのボディゴールに対応:
 
-- **アバター視覚変化** — 体型5段階で進捗を可視化
-- **AIパーソナライズ提案** — Gemini APIによる食事解析・毎日のアドバイス
+- **アバター同期変化** — ゴール5段階でBefore→Afterを視覚化。アバターはあなたの分身として目標に向けて変化する
+- **全方向ボディケア** — 減量・増量・体型維持の3モードに対応したAIアドバイス
+- **AIパーソナライズ提案** — Gemini APIによる食事解析・ゴールモード別毎日アドバイス
 - **ゲーミフィケーション** — ストリーク・バッジ・グループ機能
 
 ## 技術スタック
@@ -16,7 +17,7 @@
 |----------|------|
 | モバイル | React Native (iOS / Android) |
 | API | AWS API Gateway (REST) + Lambda Authorizer |
-| 関数実行 | AWS Lambda (6関数) |
+| 関数実行 | AWS Lambda (7関数 + Authorizer) |
 | DB | DynamoDB シングルテーブル設計 |
 | 画像保存 | S3 + Presigned URL |
 | 認証 | 自前JWT (HS256) |
@@ -27,7 +28,7 @@
 ## リポジトリ構造
 
 ```
-YASRUN/
+AIMORPHO/
 ├── .github/workflows/       # CI/CDパイプライン
 ├── backend/
 │   ├── layers/              # Lambda共通Layer
@@ -39,7 +40,7 @@ YASRUN/
 │       ├── fn-user/         # ユーザー・プロフィール・目標
 │       ├── fn-log/          # 体重・運動記録
 │       ├── fn-meal/         # 食事記録・Gemini解析
-│       ├── fn-ai/           # AIアドバイス・ペナルティ
+│       ├── fn-ai/           # AIアドバイス・ジャーニーチェック
 │       ├── fn-avatar/       # アバター生成 (timeout 90s)
 │       └── fn-social/       # グループ・バッジ
 ├── infrastructure/          # Terraform
@@ -56,13 +57,20 @@ YASRUN/
 
 ## アバター変化ロジック
 
-| body_state | 状態 | 条件 |
-|-----------|------|------|
-| 0 | 理想体型 / 目標達成 | 初期値 or 目標体重達成 |
-| 1〜3 | 中間体型 | missedDays≥3 でペナルティ |
-| 4 | 最太り | body_state上限 |
+body_state はゴールモードに応じて意味が変わる:
 
-**回復条件**: 3日連続ログイン + 全日運動記録(completed:true) + 直近3日平均摂取kcal ≤ TDEE → body_state -1
+| body_state | 状態 | 意味 |
+|-----------|------|------|
+| 0 | ゴール達成 | 目標体重達成 or 初期値 |
+| 1〜3 | ジャーニー中 | 目標に向けて変化中 |
+| 4 | 要ケア | missedDays≥3 でジャーニーチェック発動 |
+
+**アバター外見**: ゴールモード別に5体生成
+- `diet` (減量): 細身(0) → ぽっちゃり(4)
+- `bulk` (増量): 筋肉質(0) → 細身すぎ(4)
+- `maintain` (維持): バランス良(0) → バランス崩れ(4)
+
+**回復条件**: 3日連続ログイン + 全日運動記録(completed:true) + 直近3日活動継続 → body_state -1
 
 ## ローカル開発 (無料・AWS不要)
 
@@ -107,8 +115,7 @@ cd mobile && npm install
 # iOS Simulator (APIはlocalhost:3000を向く)
 npx react-native run-ios
 
-# Android Emulator (localhost → 10.0.2.2 に変更が必要)
-# mobile/src/api/client.ts の BASE_URL を http://10.0.2.2:3000 に変更
+# Android Emulator (Platform.OS === 'android' で自動的に 10.0.2.2:3000 を使用)
 npx react-native run-android
 ```
 
@@ -119,10 +126,13 @@ npx react-native run-android
 ## 本番デプロイ
 
 ```bash
-# Terraform初期化
-cd infrastructure && terraform init
+# 初回のみ: Terraform state用リソース作成
+cd infrastructure && bash bootstrap.sh
 
-# デプロイ (GitHub Actions mainマージで自動実行)
+# Terraform初期化
+terraform init
+
+# デプロイ (GitHub Actions mainブランチへのpushで自動実行)
 cd backend && npm run deploy:layers && npm run deploy:functions
 ```
 

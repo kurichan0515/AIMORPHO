@@ -1,4 +1,4 @@
-# システム設計書 v1.0
+# AIMORPHO システム設計書 v1.1
 
 ## 1. DynamoDBシングルテーブル設計
 
@@ -9,7 +9,7 @@
 | エンティティ | PK | SK | 主な属性 |
 |---|---|---|---|
 | User | USER#\<userId\> | PROFILE | email, displayName, age, heightCm, weightKg, bodyFatPct, lifestyle, aiTone, bodyPhotoKey, bodyBalance, timezone, createdAt |
-| Goal | USER#\<userId\> | GOAL#ACTIVE | targetWeight, mode(diet\|maintain), startedAt, achievedAt |
+| Goal | USER#\<userId\> | GOAL#ACTIVE | targetWeight, mode(diet\|maintain\|bulk), startedAt, achievedAt |
 | Avatar | USER#\<userId\> | AVATAR | facePhotoKey, avatarImages{0-4}(s3Url), bodyState(0-4), missedDays, bodyBalance, regenerateCount, updatedAt |
 | Streak | USER#\<userId\> | STREAK | currentDays, longestDays, lastLoggedAt |
 | RT Blacklist | RT#\<jti\> | BLACKLIST | userId, expiredAt (TTL) |
@@ -91,7 +91,7 @@ GSI1本のみ (コスト最小化)
 | Method | Path | 説明 |
 |---|---|---|
 | GET | /ai/daily-advice | 1日1回キャッシュ付きアドバイス |
-| POST | /ai/penalty-event | 未ログインペナルティ処理 |
+| POST | /ai/penalty-event | 未ログインジャーニーチェック処理 |
 | GET | /ai/goal-message | ゴール達成メッセージ |
 
 ### ソーシャル /groups/*
@@ -120,6 +120,14 @@ GSI1本のみ (コスト最小化)
 
 ## 4. アバター変化ロジック
 
+### body_state = 0（ゴール達成）の定義
+
+| goalMode | 達成条件 |
+|---|---|
+| diet | currentWeight ≤ targetWeight |
+| bulk | currentWeight ≥ targetWeight |
+| maintain | \|currentWeight - targetWeight\| ≤ 1.0kg |
+
 ### body_state遷移
 
 | 条件 | body_state | missedDays | streak |
@@ -129,9 +137,22 @@ GSI1本のみ (コスト最小化)
 | missedDays ≥ 3 + YES | 変化なし | 0リセット | 0リセット |
 | 目標体重達成 | 0リセット | 0リセット | 維持 |
 
+### アバター外見（goalMode別）
+
+| state | diet | bulk | maintain |
+|---|---|---|---|
+| 0 | 引き締まった細身（理想） | 筋肉質がっしり（理想） | バランス良く引き締まり（理想） |
+| 4 | ぽっちゃり（目標から遠い） | 非常に細身（目標から遠い） | バランス崩れ（要ケア） |
+
 ### 回復条件
 
-3日連続ログイン + 全日運動(completed:true) + 直近3日平均kcal ≤ TDEE → body_state -1
+3日連続ログイン + 全日運動(completed:true) + 以下のカロリー条件 → body_state -1
+
+| goalMode | カロリー条件 |
+|---|---|
+| diet | 直近3日平均 ≤ TDEE |
+| bulk | 直近3日平均 ≥ TDEE |
+| maintain | 直近3日平均が TDEE ± 10% 以内 |
 
 ### BMR計算式
 
@@ -144,11 +165,11 @@ Mifflin-St Jeor式 + ライフスタイル活動係数 (1.2 / 1.375 / 1.55 / 1.7
 | 関数名 | エンドポイント | メモリ | タイムアウト | Provisioned |
 |---|---|---|---|---|
 | fn-auth | /auth/* | 128MB | 5s | 不要 |
-| fn-user | /users/*, /avatar | 128MB | 10s | 不要 |
-| fn-log | /logs/weight, /exercise | 256MB | 15s | 不要 |
+| fn-user | /users/* | 128MB | 10s | 不要 |
+| fn-log | /logs/weight, /logs/exercise | 256MB | 15s | 不要 |
 | fn-meal | /logs/meal | 512MB | 30s | 検討 |
 | fn-ai | /ai/* | 512MB | 30s | 検討 |
-| fn-avatar | /avatar/generate | 512MB | 90s | 検討 |
+| fn-avatar | /avatar/* | 512MB | 90s | 検討 |
 | fn-social | /groups/* | 128MB | 10s | 不要 |
 
 ### Lambda Layer
@@ -182,7 +203,7 @@ Mifflin-St Jeor式 + ライフスタイル活動係数 (1.2 / 1.375 / 1.55 / 1.7
 ### AIアドバイスキャッシュ
 
 - 1日1回生成 + DynamoDB TTL (翌日0時epoch)
-- コンテキスト: age, height, currentWeight, targetWeight, lifestyle, aiTone, 直近7日体重, 直近3日食事kcal, 直近3日運動, streak, bodyState
+- コンテキスト: age, height, currentWeight, targetWeight, goalMode(diet|bulk|maintain), lifestyle, aiTone, 直近7日体重, 直近3日食事kcal, 直近3日運動, streak, bodyState
 - 500DAU月額: ~$0.5/月 (キャッシュ有) vs ~$15/月 (毎回生成)
 
 ---
@@ -198,4 +219,4 @@ Mifflin-St Jeor式 + ライフスタイル活動係数 (1.2 / 1.375 / 1.55 / 1.7
 | modules/iam | 実行ロール, DynamoDB/S3/SecretsManager ポリシー |
 | modules/secrets | JWT_SECRET, GEMINI_API_KEY |
 
-Terraformステート: S3バックエンド (yasrun-tfstate) + DynamoDBロック (yasrun-tflock)
+Terraformステート: S3バックエンド (aimorpho-tfstate) + DynamoDBロック (aimorpho-tflock)

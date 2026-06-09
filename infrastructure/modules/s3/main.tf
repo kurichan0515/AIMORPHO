@@ -1,6 +1,6 @@
 resource "aws_s3_bucket" "images" {
   bucket = var.bucket_name
-  tags   = { Environment = var.environment, Project = "yasrun" }
+  tags   = { Environment = var.environment, Project = "aimorpho" }
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "images" {
@@ -36,7 +36,7 @@ resource "aws_s3_bucket_public_access_block" "images" {
 # Lambda コード用バケット（画像バケットと分離）
 resource "aws_s3_bucket" "lambda_code" {
   bucket = "${var.bucket_name}-lambda-code"
-  tags   = { Environment = var.environment, Project = "yasrun" }
+  tags   = { Environment = var.environment, Project = "aimorpho" }
 }
 
 resource "aws_s3_bucket_public_access_block" "lambda_code" {

@@ -1,9 +1,15 @@
 import { S3Client as AWSS3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-export const BUCKET = process.env.S3_BUCKET ?? 'yasrun-images';
+export const BUCKET = process.env.S3_BUCKET ?? 'aimorpho-images';
 
-export const s3 = new AWSS3Client({ region: process.env.AWS_REGION ?? 'ap-northeast-1' });
+export const s3 = new AWSS3Client({
+  region: process.env.AWS_REGION ?? 'ap-northeast-1',
+  ...(process.env.S3_ENDPOINT && {
+    endpoint: process.env.S3_ENDPOINT,
+    forcePathStyle: true,
+  }),
+});
 
 export const getUploadUrl = async (key: string): Promise<string> =>
   getSignedUrl(s3, new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: 'image/jpeg' }), { expiresIn: 300 });
@@ -20,4 +26,7 @@ export const putObject = async (key: string, body: Buffer, contentType: string):
   await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body, ContentType: contentType }));
 };
 
-export const publicUrl = (key: string): string => `https://${BUCKET}.s3.amazonaws.com/${key}`;
+export const publicUrl = (key: string): string =>
+  process.env.S3_ENDPOINT
+    ? `${process.env.S3_ENDPOINT}/${BUCKET}/${key}`
+    : `https://${BUCKET}.s3.amazonaws.com/${key}`;

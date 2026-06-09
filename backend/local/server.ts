@@ -9,6 +9,7 @@ import { handler as fnMeal }   from '../functions/fn-meal/index';
 import { handler as fnAvatar } from '../functions/fn-avatar/index';
 import { handler as fnSocial } from '../functions/fn-social/index';
 import { handler as fnAi }     from '../functions/fn-ai/index';
+import { handler as fnAdmin }  from '../src/presentation/handlers/adminHandler';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -35,18 +36,22 @@ const auth = async (req: AuthRequest, res: Response, next: NextFunction): Promis
   }
 };
 
+app.post('/auth/anonymous', wrap(fnAuth as Parameters<typeof wrap>[0]));
+app.post('/auth/upgrade',  auth, wrap(fnAuth as Parameters<typeof wrap>[0]));
 app.post('/auth/register', wrap(fnAuth as Parameters<typeof wrap>[0]));
 app.post('/auth/login',    wrap(fnAuth as Parameters<typeof wrap>[0]));
 app.post('/auth/refresh',  wrap(fnAuth as Parameters<typeof wrap>[0]));
 app.post('/auth/logout',   wrap(fnAuth as Parameters<typeof wrap>[0]));
 
-app.get ('/users/me',         auth, wrap(fnUser as Parameters<typeof wrap>[0]));
-app.put ('/users/me',         auth, wrap(fnUser as Parameters<typeof wrap>[0]));
-app.get ('/users/me/goal',    auth, wrap(fnUser as Parameters<typeof wrap>[0]));
-app.post('/users/me/goal',    auth, wrap(fnUser as Parameters<typeof wrap>[0]));
-app.get ('/users/me/streak',  auth, wrap(fnUser as Parameters<typeof wrap>[0]));
-app.get ('/users/me/badges',  auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.get ('/users/me',              auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.put ('/users/me',              auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.put ('/users/me/fcm-token',    auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.get ('/users/me/goal',         auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.post('/users/me/goal',         auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.get ('/users/me/streak',       auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.get ('/users/me/badges',       auth, wrap(fnUser as Parameters<typeof wrap>[0]));
 
+app.get ('/avatar',            auth, wrap(fnAvatar as Parameters<typeof wrap>[0]));
 app.get ('/avatar/upload-url', auth, wrap(fnAvatar as Parameters<typeof wrap>[0]));
 app.post('/avatar/generate',   auth, wrap(fnAvatar as Parameters<typeof wrap>[0]));
 app.put ('/avatar/state',      auth, wrap(fnAvatar as Parameters<typeof wrap>[0]));
@@ -54,6 +59,7 @@ app.put ('/avatar/state',      auth, wrap(fnAvatar as Parameters<typeof wrap>[0]
 app.post('/logs/weight',          auth, wrap(fnLog as Parameters<typeof wrap>[0]));
 app.get ('/logs/weight',          auth, wrap(fnLog as Parameters<typeof wrap>[0]));
 app.get ('/logs/meal/upload-url', auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
+app.post('/logs/meal/manual',     auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
 app.post('/logs/meal',            auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
 app.get ('/logs/meal',            auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
 app.post('/logs/exercise',        auth, wrap(fnLog as Parameters<typeof wrap>[0]));
@@ -70,11 +76,14 @@ app.get   ('/groups/:group_id',      auth, wrap(fnSocial as Parameters<typeof wr
 app.get   ('/groups/:group_id/feed', auth, wrap(fnSocial as Parameters<typeof wrap>[0]));
 app.delete('/groups/:group_id/leave',auth, wrap(fnSocial as Parameters<typeof wrap>[0]));
 
+app.post('/admin/notifications/send', wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/users',              wrap(fnAdmin as Parameters<typeof wrap>[0]));
+
 app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 const PORT = process.env.PORT ?? 3000;
 app.listen(PORT, () => {
-  console.log(`YASERUN local API: http://localhost:${PORT}`);
+  console.log(`AIMORPHO local API: http://localhost:${PORT}`);
   console.log(`DynamoDB endpoint: ${process.env.DYNAMODB_ENDPOINT ?? '(AWS)'}`);
   console.log(`Gemini API:        ${process.env.GEMINI_API_KEY ? 'enabled' : 'mock mode'}`);
 });

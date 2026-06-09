@@ -2,7 +2,7 @@ import { LambdaEvent, error, parseBody, getUserId, toResponse } from '../http';
 import { deps } from '../container';
 import * as AvatarUseCases from '../../application/avatar/AvatarUseCases';
 
-const avatarDeps = { avatarRepo: deps.avatarRepo };
+const avatarDeps = { avatarRepo: deps.avatarRepo, userRepo: deps.userRepo };
 
 export const handler = async (event: LambdaEvent) => {
   const userId = getUserId(event);
@@ -12,6 +12,7 @@ export const handler = async (event: LambdaEvent) => {
   const body = parseBody(event.body);
 
   try {
+    if (path === '/avatar'            && httpMethod === 'GET')   return toResponse(await AvatarUseCases.getAvatar(avatarDeps, userId));
     if (path === '/avatar/upload-url' && httpMethod === 'GET')  return toResponse(await AvatarUseCases.getAvatarUploadUrl(userId));
     if (path === '/avatar/generate'   && httpMethod === 'POST') {
       const { facePhotoKey } = body as { facePhotoKey?: string };

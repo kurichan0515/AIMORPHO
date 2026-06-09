@@ -6,6 +6,7 @@ const toEvent = (req: Request, userId: string | null = null): LambdaEvent => ({
   path: req.path,
   pathParameters: req.params as Record<string, string>,
   queryStringParameters: Object.keys(req.query).length ? req.query as Record<string, string> : null,
+  headers: req.headers as Record<string, string>,
   body: req.body ? JSON.stringify(req.body) : null,
   requestContext: { authorizer: userId ? { userId } : {} },
 });

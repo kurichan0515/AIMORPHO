@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, Switch,
+  ScrollView, Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
@@ -23,7 +24,8 @@ const AI_TONE_OPTIONS = [
 ];
 
 export default function ProfileScreen() {
-  const { logout } = useAuthStore();
+  const { logout, isAnonymous } = useAuthStore();
+  const navigation = useNavigation<any>();
   const qc = useQueryClient();
 
   const { data: profile } = useQuery({
@@ -45,7 +47,7 @@ export default function ProfileScreen() {
     displayName: '', age: '', heightCm: '', weightKg: '',
     lifestyle: 'moderate', aiTone: 'friendly',
   });
-  const [goalForm, setGoalForm] = useState({ targetWeight: '', mode: 'diet' as 'diet' | 'maintain' });
+  const [goalForm, setGoalForm] = useState({ targetWeight: '', mode: 'maintain' as 'diet' | 'maintain' | 'bulk' });
 
   useEffect(() => {
     if (profile) setForm({
@@ -59,7 +61,7 @@ export default function ProfileScreen() {
   }, [profile]);
 
   useEffect(() => {
-    if (goal) setGoalForm({ targetWeight: String(goal.targetWeight || ''), mode: goal.mode || 'diet' });
+    if (goal) setGoalForm({ targetWeight: String(goal.targetWeight || ''), mode: goal.mode || 'maintain' });
   }, [goal]);
 
   const profileMutation = useMutation({
@@ -128,9 +130,13 @@ export default function ProfileScreen() {
       <Text style={styles.sectionTitle}>目標設定</Text>
       <TextInput style={styles.input} placeholder="目標体重 (kg)" value={goalForm.targetWeight} onChangeText={v => setGoalForm(g => ({ ...g, targetWeight: v }))} keyboardType="decimal-pad" />
       <View style={styles.row}>
-        {(['diet', 'maintain'] as const).map(m => (
-          <TouchableOpacity key={m} style={[styles.modeBtn, goalForm.mode === m && styles.modeBtnActive]} onPress={() => setGoalForm(g => ({ ...g, mode: m }))}>
-            <Text style={[styles.modeBtnText, goalForm.mode === m && styles.modeBtnTextActive]}>{m === 'diet' ? 'ダイエット' : '維持'}</Text>
+        {([
+          { value: 'diet',     label: '🔥 減量' },
+          { value: 'maintain', label: '⚖️ 維持' },
+          { value: 'bulk',     label: '💪 増量' },
+        ] as const).map(m => (
+          <TouchableOpacity key={m.value} style={[styles.modeBtn, goalForm.mode === m.value && styles.modeBtnActive]} onPress={() => setGoalForm(g => ({ ...g, mode: m.value }))}>
+            <Text style={[styles.modeBtnText, goalForm.mode === m.value && styles.modeBtnTextActive]}>{m.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -138,13 +144,36 @@ export default function ProfileScreen() {
         <Text style={styles.saveBtnText}>目標を設定</Text>
       </TouchableOpacity>
 
-      {/* ログアウト */}
-      <TouchableOpacity style={styles.logoutBtn} onPress={() => Alert.alert('ログアウト', '本当にログアウトしますか？', [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: 'ログアウト', style: 'destructive', onPress: logout },
-      ])}>
-        <Text style={styles.logoutBtnText}>ログアウト</Text>
-      </TouchableOpacity>
+      {/* アカウント */}
+      <Text style={styles.sectionTitle}>アカウント</Text>
+      {isAnonymous ? (
+        <View style={styles.accountBox}>
+          <Text style={styles.accountAnonymousLabel}>ゲストモードで利用中</Text>
+          <Text style={styles.accountAnonymousDesc}>
+            メールアドレスを登録すると、機種変更・再インストール時にデータを復元できます。
+          </Text>
+          <TouchableOpacity style={styles.accountBtn} onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.accountBtnText}>アカウント登録（データを保護する）</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.accountBtnSecondary} onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.accountBtnSecondaryText}>既存アカウントでログインして引き継ぐ</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.accountBox}>
+          <Text style={styles.accountRegisteredLabel}>登録済みアカウント</Text>
+          <Text style={styles.accountEmail}>{profile?.email ?? ''}</Text>
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => Alert.alert('ログアウト', 'ログアウトすると、次回起動時はゲストとして再スタートします。', [
+              { text: 'キャンセル', style: 'cancel' },
+              { text: 'ログアウト', style: 'destructive', onPress: () => { qc.clear(); logout(); } },
+            ])}
+          >
+            <Text style={styles.logoutBtnText}>ログアウト</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -176,6 +205,15 @@ const styles = StyleSheet.create({
   modeBtnActive:      { backgroundColor: '#007AFF' },
   modeBtnText:        { fontWeight: 'bold', color: '#555' },
   modeBtnTextActive:  { color: '#FFF' },
-  logoutBtn:          { marginTop: 24, padding: 14, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
-  logoutBtnText:      { color: '#FF3B30', fontWeight: 'bold', fontSize: 15 },
+  accountBox:                { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 8, elevation: 1 },
+  accountAnonymousLabel:     { fontSize: 14, fontWeight: '600', color: '#FF9500', marginBottom: 6 },
+  accountAnonymousDesc:      { fontSize: 13, color: '#666', marginBottom: 12, lineHeight: 20 },
+  accountBtn:                { backgroundColor: '#007AFF', borderRadius: 10, padding: 13, alignItems: 'center', marginBottom: 8 },
+  accountBtnText:            { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+  accountBtnSecondary:       { borderWidth: 1, borderColor: '#007AFF', borderRadius: 10, padding: 13, alignItems: 'center' },
+  accountBtnSecondaryText:   { color: '#007AFF', fontWeight: '600', fontSize: 14 },
+  accountRegisteredLabel:    { fontSize: 13, color: '#34C759', fontWeight: '600', marginBottom: 4 },
+  accountEmail:              { fontSize: 14, color: '#333', marginBottom: 12 },
+  logoutBtn:                 { padding: 13, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
+  logoutBtnText:             { color: '#FF3B30', fontWeight: 'bold', fontSize: 14 },
 });

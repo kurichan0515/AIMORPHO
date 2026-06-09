@@ -1,5 +1,5 @@
 import {
-  GetCommand, PutCommand, UpdateCommand, QueryCommand,
+  GetCommand, PutCommand, UpdateCommand, QueryCommand, ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IUserRepository } from '../../domain/user/IUserRepository';
@@ -27,6 +27,7 @@ export class UserRepository implements IUserRepository {
       Item: {
         PK: `USER#${user.userId}`,
         SK: 'PROFILE',
+        isAnonymous: user.isAnonymous,
         email: user.email,
         displayName: user.displayName,
         passwordHash: user.passwordHash,
@@ -41,6 +42,37 @@ export class UserRepository implements IUserRepository {
         timezone: user.timezone,
         createdAt: user.createdAt,
       },
+    }));
+  }
+
+  async saveFcmToken(userId: UserId, fcmToken: string): Promise<void> {
+    await db.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'PROFILE' },
+      UpdateExpression: 'SET fcmToken = :t',
+      ExpressionAttributeValues: { ':t': fcmToken },
+    }));
+  }
+
+  async listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]> {
+    const r = await db.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'SK = :sk AND attribute_exists(fcmToken)',
+      ExpressionAttributeValues: { ':sk': 'PROFILE' },
+      ProjectionExpression: 'PK, fcmToken',
+    }));
+    return (r.Items ?? []).map(item => ({
+      userId: (item.PK as string).replace('USER#', '') as UserId,
+      fcmToken: item.fcmToken as string,
+    }));
+  }
+
+  async upgradeToRegistered(userId: UserId, email: string, passwordHash: string): Promise<void> {
+    await db.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'PROFILE' },
+      UpdateExpression: 'SET email = :email, passwordHash = :hash, isAnonymous = :f',
+      ExpressionAttributeValues: { ':email': email, ':hash': passwordHash, ':f': false },
     }));
   }
 
@@ -115,9 +147,10 @@ export class UserRepository implements IUserRepository {
   #mapUser(userId: UserId, item: Record<string, unknown>): User {
     return {
       userId,
-      email: item.email as string,
-      displayName: item.displayName as string,
-      passwordHash: item.passwordHash as string,
+      isAnonymous: (item.isAnonymous as boolean) ?? true,
+      email: item.email as string | undefined,
+      displayName: (item.displayName as string) ?? '',
+      passwordHash: item.passwordHash as string | undefined,
       gender: item.gender as User['gender'],
       age: item.age as number | undefined,
       heightCm: item.heightCm as number | undefined,

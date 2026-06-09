@@ -17,4 +17,7 @@ export interface IUserRepository {
   saveStreak(streak: Streak): Promise<void>;
 
   createEmailIndex(email: string, userId: UserId): Promise<void>;
+  upgradeToRegistered(userId: UserId, email: string, passwordHash: string): Promise<void>;
+  saveFcmToken(userId: UserId, fcmToken: string): Promise<void>;
+  listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]>;
 }

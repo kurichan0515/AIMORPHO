@@ -3,7 +3,7 @@ version: '3.8'
 services:
   dynamodb-local:
     image: amazon/dynamodb-local:latest
-    container_name: yaserun-dynamodb
+    container_name: aimorpho-dynamodb
     ports:
       - '8000:8000'
     command: ['-jar', 'DynamoDBLocal.jar', '-sharedDb', '-inMemory']
@@ -15,7 +15,7 @@ services:
 
   localstack:
     image: localstack/localstack:latest
-    container_name: yaserun-localstack
+    container_name: aimorpho-localstack
     ports:
       - '4566:4566'
     environment:
@@ -34,7 +34,7 @@ services:
     build:
       context: ./backend
       dockerfile: local/Dockerfile
-    container_name: yaserun-api
+    container_name: aimorpho-api
     ports:
       - '3000:3000'
     env_file:

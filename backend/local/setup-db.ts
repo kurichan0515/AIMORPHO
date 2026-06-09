@@ -4,9 +4,9 @@ import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { BADGE_DEFINITIONS } from '../src/domain/badge/Badge';
 
-const TABLE    = process.env.DYNAMODB_TABLE   ?? 'yasrun';
+const TABLE    = process.env.DYNAMODB_TABLE   ?? 'aimorpho';
 const ENDPOINT = process.env.DYNAMODB_ENDPOINT ?? 'http://localhost:8000';
-const BUCKET   = process.env.S3_BUCKET         ?? 'yasrun-images';
+const BUCKET   = process.env.S3_BUCKET         ?? 'aimorpho-images';
 const S3_EP    = process.env.S3_ENDPOINT        ?? 'http://localhost:4566';
 
 const client = new DynamoDBClient({

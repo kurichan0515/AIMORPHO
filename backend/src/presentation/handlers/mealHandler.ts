@@ -14,6 +14,11 @@ export const handler = async (event: LambdaEvent) => {
 
   try {
     if (path === '/logs/meal/upload-url' && httpMethod === 'GET')  return toResponse(await MealUseCases.getMealUploadUrl(userId));
+    if (path === '/logs/meal/manual'     && httpMethod === 'POST') {
+      const { menuName, kcal, proteinG, fatG, carbG } = body as { menuName?: string; kcal?: number; proteinG?: number; fatG?: number; carbG?: number };
+      if (kcal === undefined) return error('kcal required');
+      return toResponse(await MealUseCases.saveMealManual(mealDeps, userId, { menuName: menuName ?? '手動入力', kcal, proteinG: proteinG ?? 0, fatG: fatG ?? 0, carbG: carbG ?? 0 }));
+    }
     if (path === '/logs/meal'            && httpMethod === 'POST') {
       const { s3Key } = body as { s3Key?: string };
       if (!s3Key) return error('s3Key required');

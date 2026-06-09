@@ -2,9 +2,10 @@ import { UserId, Lifestyle, AiTone, Gender, DateString } from '../shared/types';
 
 export type User = {
   userId: UserId;
-  email: string;
+  isAnonymous: boolean;
+  email?: string;
   displayName: string;
-  passwordHash: string;
+  passwordHash?: string;
   gender?: Gender;
   age?: number;
   heightCm?: number;
@@ -15,6 +16,7 @@ export type User = {
   bodyBalance?: number;
   timezone: string;
   createdAt: DateString;
+  fcmToken?: string;
 };
 
 export type UserProfile = Omit<User, 'passwordHash'>;

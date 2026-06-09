@@ -9,13 +9,13 @@ data "aws_iam_policy_document" "lambda_assume" {
 }
 
 resource "aws_iam_role" "lambda" {
-  name               = "yasrun-lambda-role-${var.environment}"
+  name               = "aimorpho-lambda-role-${var.environment}"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-  tags               = { Environment = var.environment, Project = "yasrun" }
+  tags               = { Environment = var.environment, Project = "aimorpho" }
 }
 
 resource "aws_iam_role_policy" "lambda_policy" {
-  name = "yasrun-lambda-policy"
+  name = "aimorpho-lambda-policy"
   role = aws_iam_role.lambda.id
   policy = jsonencode({
     Version = "2012-10-17"
@@ -46,7 +46,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Sid    = "SecretsManager"
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
-        Resource = "arn:aws:secretsmanager:*:*:secret:yasrun/*"
+        Resource = "arn:aws:secretsmanager:*:*:secret:aimorpho/*"
       },
       {
         Sid    = "Logs"

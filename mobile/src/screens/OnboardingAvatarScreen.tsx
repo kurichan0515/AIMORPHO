@@ -49,17 +49,15 @@ export default function OnboardingAvatarScreen() {
   };
 
   const startWithDefault = async () => {
-    if (!localGender) {
-      Alert.alert('性別を選択してください');
-      return;
-    }
-    setGender(localGender);
+    if (localGender) setGender(localGender);
     setUseDefault(true);
+    useOnboardingStore.getState().reset();
     await completeOnboarding();
   };
 
   const startWithGenerated = async () => {
     if (localGender) setGender(localGender);
+    useOnboardingStore.getState().reset();
     await completeOnboarding();
   };
 
@@ -76,10 +74,10 @@ export default function OnboardingAvatarScreen() {
 
       <Text style={styles.title}>アバター設定</Text>
 
-      {/* 性別未設定なら入力 */}
+      {/* 性別選択（任意） */}
       {needGender && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>性別を選択してください</Text>
+          <Text style={styles.sectionTitle}>性別 <Text style={{ fontWeight: '400', fontSize: 12, color: '#999' }}>（任意）</Text></Text>
           <View style={styles.genderRow}>
             {GENDER_OPTIONS.map(o => (
               <TouchableOpacity
@@ -159,9 +157,9 @@ export default function OnboardingAvatarScreen() {
 
           {/* デフォルト */}
           <TouchableOpacity
-            style={[styles.defaultBtn, !localGender && styles.btnDisabled]}
+            style={[styles.defaultBtn, mutation.isPending && styles.btnDisabled]}
             onPress={startWithDefault}
-            disabled={!localGender}
+            disabled={mutation.isPending}
           >
             <Text style={styles.defaultBtnIcon}>🎨</Text>
             <View>
@@ -177,7 +175,7 @@ export default function OnboardingAvatarScreen() {
             <Text style={styles.successSub}>5体のアバターを作成しました</Text>
           </View>
           <TouchableOpacity style={styles.startBtn} onPress={startWithGenerated}>
-            <Text style={styles.startBtnText}>YASERUNをはじめる 🚀</Text>
+            <Text style={styles.startBtnText}>AIMORPHOをはじめる 🚀</Text>
           </TouchableOpacity>
         </View>
       )}

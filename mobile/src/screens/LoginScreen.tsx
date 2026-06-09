@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
-  const { login } = useAuthStore();
+  const qc = useQueryClient();
+  const { loginAndRestore } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,7 +16,9 @@ export default function LoginScreen() {
     if (!email || !password) { Alert.alert('エラー', 'メールとパスワードを入力してください'); return; }
     setLoading(true);
     try {
-      await login(email, password);
+      await loginAndRestore(email, password);
+      qc.clear();
+      navigation.navigate('Main');
     } catch {
       Alert.alert('ログイン失敗', 'メールまたはパスワードが正しくありません');
     } finally {
@@ -24,15 +28,15 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Text style={styles.title}>YASERUN</Text>
-      <Text style={styles.subtitle}>アバターと一緒にダイエット</Text>
+      <Text style={styles.title}>既存アカウントで引き継ぎ</Text>
+      <Text style={styles.subtitle}>登録済みのメールアドレスとパスワードを入力してください</Text>
       <TextInput style={styles.input} placeholder="メールアドレス" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <TextInput style={styles.input} placeholder="パスワード" value={password} onChangeText={setPassword} secureTextEntry />
       <TouchableOpacity style={styles.btn} onPress={submit} disabled={loading}>
-        <Text style={styles.btnText}>{loading ? 'ログイン中...' : 'ログイン'}</Text>
+        <Text style={styles.btnText}>{loading ? 'ログイン中...' : 'ログインしてデータを引き継ぐ'}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.link}>アカウント作成はこちら</Text>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <Text style={styles.link}>戻る</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
@@ -40,8 +44,8 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container:  { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#FFF' },
-  title:      { fontSize: 36, fontWeight: 'bold', textAlign: 'center', color: '#007AFF' },
-  subtitle:   { fontSize: 14, textAlign: 'center', color: '#666', marginBottom: 32 },
+  title:      { fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
+  subtitle:   { fontSize: 13, color: '#666', marginBottom: 24, lineHeight: 20 },
   input:      { borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 12 },
   btn:        { backgroundColor: '#007AFF', borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 8 },
   btnText:    { color: '#FFF', fontSize: 16, fontWeight: 'bold' },

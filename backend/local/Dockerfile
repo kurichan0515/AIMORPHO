@@ -3,4 +3,4 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install
 COPY . .
-CMD ["node", "local/server.js"]
+CMD ["npx", "ts-node", "--transpile-only", "local/server.ts"]

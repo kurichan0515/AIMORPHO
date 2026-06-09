@@ -43,7 +43,8 @@ export const getDailyAdvice = async (deps: Deps, userId: UserId) => {
     age: user.age ?? 30,
     heightCm: user.heightCm ?? 165,
     currentWeight: recentWeights[0]?.weightKg ?? user.weightKg ?? 60,
-    targetWeight: goal?.targetWeight ?? 55,
+    targetWeight: goal?.targetWeight ?? 60,
+    goalMode: goal?.mode,
     lifestyle: user.lifestyle,
     aiTone: user.aiTone,
     currentDays: streak?.currentDays ?? 0,
@@ -95,9 +96,16 @@ export const handlePenaltyEvent = async (
   return { data: { event: 'interrogation', missedDays, question }, statusCode: 200 } as const;
 };
 
+const GOAL_ACHIEVE_MESSAGES: Record<string, (kg: number) => string> = {
+  diet:     kg => `おめでとう！目標体重${kg}kgへの減量を達成しました！`,
+  bulk:     kg => `おめでとう！目標体重${kg}kgへの増量を達成しました！`,
+  maintain: kg => `おめでとう！${kg}kg維持を続けています！`,
+};
+
 export const getGoalMessage = async (deps: Deps, userId: UserId) => {
   const goal = await deps.userRepo.getGoal(userId);
   if (!goal?.achievedAt) return { error: 'Goal not yet achieved', statusCode: 400 } as const;
-  const message = `おめでとうございます！目標体重${goal.targetWeight}kgを達成しました！`;
+  const msgFn = GOAL_ACHIEVE_MESSAGES[goal.mode ?? 'diet'] ?? GOAL_ACHIEVE_MESSAGES.diet;
+  const message = msgFn(goal.targetWeight);
   return { data: { message, achievedAt: goal.achievedAt }, statusCode: 200 } as const;
 };

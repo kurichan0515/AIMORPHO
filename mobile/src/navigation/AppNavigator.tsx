@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -67,22 +67,27 @@ function OnboardingNavigator() {
 }
 
 export default function AppNavigator() {
-  const { isLoggedIn, onboardingCompleted } = useAuthStore();
+  const { isInitialized, onboardingCompleted } = useAuthStore();
+
+  if (!isInitialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isLoggedIn ? (
-          <>
-            <Stack.Screen name="Login"    component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
-        ) : !onboardingCompleted ? (
+        {!onboardingCompleted ? (
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         ) : (
           <>
-            <Stack.Screen name="Main"   component={MainTabs} />
-            <Stack.Screen name="Badges" component={BadgesScreen} options={{ headerShown: true, title: 'バッジ一覧' }} />
+            <Stack.Screen name="Main"     component={MainTabs} />
+            <Stack.Screen name="Badges"   component={BadgesScreen}  options={{ headerShown: true, title: 'バッジ一覧' }} />
+            <Stack.Screen name="Login"    component={LoginScreen}   options={{ headerShown: true, title: '既存アカウントでログイン' }} />
+            <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: 'アカウント登録' }} />
           </>
         )}
       </Stack.Navigator>

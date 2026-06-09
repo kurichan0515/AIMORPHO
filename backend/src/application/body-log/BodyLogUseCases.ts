@@ -80,7 +80,12 @@ export const getExerciseHistory = async (deps: Deps, userId: UserId, from: strin
 async function checkAndHandleGoalAchievement(deps: Deps, userId: UserId, currentWeight: number): Promise<void> {
   const goal = await deps.userRepo.getGoal(userId);
   if (!goal || goal.achievedAt) return;
-  if (goal.mode === 'diet' && currentWeight <= goal.targetWeight) {
+  const achieved =
+    (goal.mode === 'diet'     && currentWeight <= goal.targetWeight) ||
+    (goal.mode === 'bulk'     && currentWeight >= goal.targetWeight) ||
+    (goal.mode === 'maintain' && Math.abs(currentWeight - goal.targetWeight) <= 1.0);
+
+  if (achieved) {
     const now = new Date().toISOString();
     await deps.userRepo.achieveGoal(userId, now);
     const avatar = await deps.avatarRepo.get(userId);
@@ -109,11 +114,13 @@ async function checkAndHandleRecovery(deps: Deps, userId: UserId): Promise<boole
     return recentMeals.filter(m => m.recordedAt.includes(d)).reduce((s, m) => s + m.kcal, 0);
   });
 
+  const goal = await deps.userRepo.getGoal(userId);
   const canRecover = checkRecoveryCondition({
     streakDays: streak?.currentDays ?? 0,
     recentExercise,
     recentKcal3days,
     tdee,
+    goalMode: goal?.mode,
   });
 
   if (canRecover && avatar.bodyState > 0) {

@@ -210,6 +210,7 @@ const styles = StyleSheet.create({
   dotActive:        { backgroundColor: '#007AFF' },
   title:            { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
   label:            { fontSize: 14, fontWeight: '600', color: '#333', marginTop: 16, marginBottom: 8 },
+  input:            { borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 10, backgroundColor: '#FAFAFA' },
   required:         { color: '#FF3B30' },
   optional:         { fontWeight: '400', color: '#999', fontSize: 12 },
   genderRow:        { flexDirection: 'row', gap: 8, marginBottom: 4 },

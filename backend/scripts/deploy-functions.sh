@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REGION="${AWS_REGION:-ap-northeast-1}"
-BUCKET="${S3_BUCKET_CODE:-yasrun-lambda-code}"
+BUCKET="${S3_BUCKET_CODE:-aimorpho-lambda-code}"
 ENV="${ENVIRONMENT:-prod}"
 FUNCTIONS_DIR="$(dirname "$0")/../functions"
 
@@ -21,9 +21,9 @@ deploy_function() {
   zip -r "$ZIP" . -x "*.zip" "node_modules/.cache/*" > /dev/null
   echo "⬆️  Uploading $fn to s3://$BUCKET/functions/${fn}.zip"
   aws s3 cp "$ZIP" "s3://$BUCKET/functions/${fn}.zip"
-  echo "🔄 Updating function: yasrun-${fn}-${ENV}"
+  echo "🔄 Updating function: aimorpho-${fn}-${ENV}"
   aws lambda update-function-code \
-    --function-name "yasrun-${fn}-${ENV}" \
+    --function-name "aimorpho-${fn}-${ENV}" \
     --s3-bucket "$BUCKET" \
     --s3-key "functions/${fn}.zip" \
     --region "$REGION" \

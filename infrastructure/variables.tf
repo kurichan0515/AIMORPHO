@@ -10,10 +10,10 @@ variable "environment" {
 
 variable "dynamodb_table_name" {
   type    = string
-  default = "yasrun"
+  default = "aimorpho"
 }
 
 variable "s3_bucket_name" {
   type    = string
-  default = "yasrun-images"
+  default = "aimorpho-images"
 }

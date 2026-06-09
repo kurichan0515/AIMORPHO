@@ -30,8 +30,13 @@ export const handler = async (event: LambdaEvent) => {
     if (path === '/users/me/goal'   && httpMethod === 'POST') {
       const { targetWeight, mode } = body as { targetWeight: number; mode: GoalMode };
       if (!targetWeight || !mode) return error('targetWeight and mode required');
-      if (!['diet', 'maintain'].includes(mode)) return error('mode must be diet or maintain');
+      if (!['diet', 'maintain', 'bulk'].includes(mode)) return error('mode must be diet, maintain or bulk');
       return toResponse(await UserUseCases.upsertGoal(userDeps, userId, { targetWeight, mode }));
+    }
+    if (path === '/users/me/fcm-token' && httpMethod === 'PUT') {
+      const { fcmToken } = body as { fcmToken?: string };
+      if (!fcmToken) return error('fcmToken required');
+      return toResponse(await UserUseCases.saveFcmToken(userDeps, userId, fcmToken));
     }
     if (path === '/users/me/streak' && httpMethod === 'GET')  return toResponse(await UserUseCases.getStreak(userDeps, userId));
     if (path === '/users/me/badges' && httpMethod === 'GET')  return toResponse(await UserUseCases.getBadges(badgeDeps, userId));

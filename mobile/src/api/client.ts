@@ -1,10 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-// ローカル開発: .env.local の API_BASE_URL を参照
-// Android Emulator からは 10.0.2.2:3000 に変更
-// iOS Simulator は localhost:3000 のまま
-const BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:3000';
+const BASE_URL = __DEV__
+  ? (Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000')
+  : (process.env.API_BASE_URL ?? 'https://api.aimorpho.example.com');
 
 const api = axios.create({ baseURL: BASE_URL });
 

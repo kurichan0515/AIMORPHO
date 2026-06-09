@@ -53,7 +53,7 @@ export default function AvatarSetupScreen() {
 
   const remaining = Math.max(0, MAX_GENERATES - regenerateCount);
   const hasGenerated = Object.keys(avatarImages).length > 0;
-  const defaultAvatars = (!hasGenerated && gender) ? getDefaultAvatars(gender) : null;
+  const defaultAvatars = !hasGenerated ? getDefaultAvatars(gender) : null;
 
   return (
     <ScrollView style={styles.container}>

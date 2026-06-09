@@ -43,6 +43,11 @@ export const getStreak = async ({ userRepo }: UserDeps, userId: UserId) => {
   return { data: streak, statusCode: 200 } as const;
 };
 
+export const saveFcmToken = async ({ userRepo }: UserDeps, userId: UserId, fcmToken: string) => {
+  await userRepo.saveFcmToken(userId, fcmToken);
+  return { data: { ok: true }, statusCode: 200 } as const;
+};
+
 export const getBadges = async ({ badgeRepo }: BadgeDeps, userId: UserId) => {
   const badges = await badgeRepo.listByUser(userId);
   return { data: badges, statusCode: 200 } as const;

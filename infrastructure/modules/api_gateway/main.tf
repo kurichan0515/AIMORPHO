@@ -1,11 +1,11 @@
-resource "aws_api_gateway_rest_api" "yasrun" {
-  name = "yasrun-api-${var.environment}"
-  tags = { Environment = var.environment, Project = "yasrun" }
+resource "aws_api_gateway_rest_api" "aimorpho" {
+  name = "aimorpho-api-${var.environment}"
+  tags = { Environment = var.environment, Project = "aimorpho" }
 }
 
 resource "aws_api_gateway_authorizer" "jwt" {
   name                   = "jwt-authorizer"
-  rest_api_id            = aws_api_gateway_rest_api.yasrun.id
+  rest_api_id            = aws_api_gateway_rest_api.aimorpho.id
   authorizer_uri         = var.authorizer_invoke_arn
   type                   = "TOKEN"
   identity_source        = "method.request.header.Authorization"
@@ -42,16 +42,16 @@ locals {
   }
 }
 
-resource "aws_api_gateway_deployment" "yasrun" {
-  rest_api_id = aws_api_gateway_rest_api.yasrun.id
+resource "aws_api_gateway_deployment" "aimorpho" {
+  rest_api_id = aws_api_gateway_rest_api.aimorpho.id
   triggers = {
-    redeployment = sha1(jsonencode(aws_api_gateway_rest_api.yasrun.body))
+    redeployment = sha1(jsonencode(aws_api_gateway_rest_api.aimorpho.body))
   }
   lifecycle { create_before_destroy = true }
 }
 
 resource "aws_api_gateway_stage" "prod" {
-  deployment_id = aws_api_gateway_deployment.yasrun.id
-  rest_api_id   = aws_api_gateway_rest_api.yasrun.id
+  deployment_id = aws_api_gateway_deployment.aimorpho.id
+  rest_api_id   = aws_api_gateway_rest_api.aimorpho.id
   stage_name    = var.environment
 }

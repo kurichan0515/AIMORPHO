@@ -38,6 +38,32 @@ export const analyzeMealLog = async (deps: Deps, userId: UserId, s3Key: string) 
   return { data: { ...result, recordedAt: now, newBadges }, statusCode: 201 } as const;
 };
 
+export const saveMealManual = async (
+  deps: Deps,
+  userId: UserId,
+  input: { menuName: string; kcal: number; proteinG: number; fatG: number; carbG: number }
+) => {
+  const now = new Date().toISOString();
+  const log: MealLog = {
+    userId,
+    imageUrl: '',
+    menuName: input.menuName,
+    kcal: input.kcal,
+    proteinG: input.proteinG,
+    fatG: input.fatG,
+    carbG: input.carbG,
+    confidence: 'high',
+    geminiRaw: '',
+    recordedAt: now,
+  };
+  await deps.mealRepo.save(log);
+
+  const count = await deps.mealRepo.count(userId);
+  const newBadges = await deps.badgeSvc.checkCountBadges(userId, 'meal', count);
+
+  return { data: { ...input, recordedAt: now, newBadges }, statusCode: 201 } as const;
+};
+
 export const getMealHistory = async (deps: Deps, userId: UserId, from: string, to: string, limit: number) => {
   const items = await deps.mealRepo.getHistory(userId, from || '1970', to || '9999', limit);
   return { data: items, statusCode: 200 } as const;

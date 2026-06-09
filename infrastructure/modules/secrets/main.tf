@@ -1,11 +1,11 @@
 resource "aws_secretsmanager_secret" "jwt" {
-  name                    = "yasrun/jwt-secret"
+  name                    = "aimorpho/jwt-secret"
   recovery_window_in_days = 7
-  tags                    = { Environment = var.environment, Project = "yasrun" }
+  tags                    = { Environment = var.environment, Project = "aimorpho" }
 }
 
 resource "aws_secretsmanager_secret" "gemini" {
-  name                    = "yasrun/gemini-api-key"
+  name                    = "aimorpho/gemini-api-key"
   recovery_window_in_days = 7
-  tags                    = { Environment = var.environment, Project = "yasrun" }
+  tags                    = { Environment = var.environment, Project = "aimorpho" }
 }

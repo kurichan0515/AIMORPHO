@@ -1,4 +1,4 @@
-resource "aws_dynamodb_table" "yasrun" {
+resource "aws_dynamodb_table" "aimorpho" {
   name         = var.table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
@@ -39,6 +39,6 @@ resource "aws_dynamodb_table" "yasrun" {
 
   tags = {
     Environment = var.environment
-    Project     = "yasrun"
+    Project     = "aimorpho"
   }
 }

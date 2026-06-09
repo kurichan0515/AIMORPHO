@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { getDailyAdvice, sendPenaltyAnswer } from '../api/ai';
 import api from '../api/client';
 import { useAvatarStore } from '../store/useAvatarStore';
+import { DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -24,7 +25,7 @@ export default function HomeScreen() {
 
   const checkPenalty = async () => {
     try {
-      const { data } = await fetch('/ai/penalty-event', { method: 'POST', body: JSON.stringify({}) }).then(r => r.json());
+      const { data } = await api.post('/ai/penalty-event', {});
       if (data?.event === 'interrogation') {
         setInterrogationMsg(data.question);
         setShowInterrogation(true);
@@ -55,19 +56,19 @@ export default function HomeScreen() {
             <Text style={styles.avatarPlaceholderText}>アバター未設定</Text>
           </View>
         )}
-        <Text style={styles.bodyStateText}>体型: {bodyState}/4</Text>
+        <Text style={styles.bodyStateText}>{DEFAULT_AVATAR_LABELS[bodyState]} ({bodyState === 0 ? 'ゴール' : `あと${bodyState}段階`})</Text>
       </View>
 
-      {/* ペナルティ尋問イベント */}
+      {/* ジャーニーチェック */}
       {showInterrogation && (
         <View style={styles.interrogation}>
           <Text style={styles.interrogationText}>{interrogationMsg}</Text>
           <View style={styles.interrogationButtons}>
             <TouchableOpacity style={[styles.btn, styles.btnYes]} onPress={() => penaltyMutation.mutate('YES')}>
-              <Text style={styles.btnText}>はい（運動した）</Text>
+              <Text style={styles.btnText}>やってた！</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.btn, styles.btnNo]} onPress={() => penaltyMutation.mutate('NO')}>
-              <Text style={styles.btnText}>いいえ（サボった）</Text>
+              <Text style={styles.btnText}>サボってた…</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -1,6 +1,14 @@
 import api from './client';
 import { uploadImageToS3 } from './logs';
 
+export const fetchAvatar = () =>
+  api.get('/avatar').then(r => r.data as {
+    avatarImages: Record<number, string | null>;
+    bodyState: number;
+    missedDays: number;
+    regenerateCount: number;
+  } | null).catch(() => null);
+
 export const getAvatarUploadUrl = () =>
   api.get('/avatar/upload-url').then(r => r.data as { uploadUrl: string; s3Key: string });
 

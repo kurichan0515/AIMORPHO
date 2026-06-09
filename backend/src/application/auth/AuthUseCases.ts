@@ -10,6 +10,44 @@ type AuthDeps = {
   blacklist: TokenBlacklistRepository;
 };
 
+export const anonymousLogin = async (
+  { userRepo }: AuthDeps,
+  { userId }: { userId: string }
+) => {
+  let user = await userRepo.findById(userId);
+  if (!user) {
+    const now = new Date().toISOString();
+    user = {
+      userId,
+      isAnonymous: true,
+      displayName: '',
+      lifestyle: 'moderate',
+      aiTone: 'friendly',
+      timezone: 'Asia/Tokyo',
+      createdAt: now,
+    };
+    await userRepo.create(user);
+  }
+  const tokens = await signTokens(userId);
+  return { data: { ...tokens, userId, isAnonymous: user.isAnonymous }, statusCode: 200 } as const;
+};
+
+export const upgradeAccount = async (
+  { userRepo }: AuthDeps,
+  userId: string,
+  { email, password }: { email: string; password: string }
+) => {
+  const existing = await userRepo.findByEmail(email);
+  if (existing && existing.userId !== userId) {
+    return { error: 'Email already registered', statusCode: 409 } as const;
+  }
+  const passwordHash = await hashPassword(password);
+  await userRepo.upgradeToRegistered(userId, email, passwordHash);
+  await userRepo.createEmailIndex(email, userId);
+  const tokens = await signTokens(userId);
+  return { data: { ...tokens, userId, isAnonymous: false }, statusCode: 200 } as const;
+};
+
 export const register = async (
   { userRepo }: AuthDeps,
   { email, password, displayName }: { email: string; password: string; displayName?: string }
@@ -21,6 +59,7 @@ export const register = async (
   const now = new Date().toISOString();
   const user: User = {
     userId, email,
+    isAnonymous: false,
     displayName: displayName ?? '',
     passwordHash: await hashPassword(password),
     lifestyle: 'moderate',
@@ -35,7 +74,7 @@ export const register = async (
   ]);
 
   const tokens = await signTokens(userId);
-  return { data: { ...tokens, userId }, statusCode: 201 } as const;
+  return { data: { ...tokens, userId, isAnonymous: false }, statusCode: 201 } as const;
 };
 
 export const login = async (
@@ -43,11 +82,11 @@ export const login = async (
   { email, password }: { email: string; password: string }
 ) => {
   const user = await userRepo.findByEmail(email);
-  if (!user || !(await comparePassword(password, user.passwordHash))) {
+  if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
     return { error: 'Invalid credentials', statusCode: 401 } as const;
   }
   const tokens = await signTokens(user.userId);
-  return { data: { ...tokens, userId: user.userId }, statusCode: 200 } as const;
+  return { data: { ...tokens, userId: user.userId, isAnonymous: false }, statusCode: 200 } as const;
 };
 
 export const refresh = async (

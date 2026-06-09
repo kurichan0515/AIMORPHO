@@ -7,10 +7,10 @@ terraform {
     }
   }
   backend "s3" {
-    bucket         = "yasrun-tfstate"
+    bucket         = "aimorpho-tfstate"
     key            = "prod/terraform.tfstate"
     region         = "ap-northeast-1"
-    dynamodb_table = "yasrun-tflock"
+    dynamodb_table = "aimorpho-tflock"
     encrypt        = true
   }
 }

@@ -23,7 +23,7 @@ Module._resolveFilename = (req, ...args) => {
   return _orig(req, ...args);
 };
 
-process.env.DYNAMODB_TABLE    = 'yasrun-test';
+process.env.DYNAMODB_TABLE    = 'aimorpho-test';
 process.env.DYNAMODB_ENDPOINT = process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
 process.env.JWT_SECRET        = process.env.JWT_SECRET        || 'test-secret';
 process.env.AWS_ACCESS_KEY_ID     = 'local';
@@ -42,9 +42,9 @@ const dbClient = new DynamoDBClient({
 // テスト用テーブル作成/削除
 beforeAll(async () => {
   const { TableNames } = await dbClient.send(new ListTablesCommand({}));
-  if (!TableNames.includes('yasrun-test')) {
+  if (!TableNames.includes('aimorpho-test')) {
     await dbClient.send(new CreateTableCommand({
-      TableName:   'yasrun-test',
+      TableName:   'aimorpho-test',
       BillingMode: 'PAY_PER_REQUEST',
       KeySchema:   [
         { AttributeName: 'PK', KeyType: 'HASH'  },
@@ -69,7 +69,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await dbClient.send(new DeleteTableCommand({ TableName: 'yasrun-test' })).catch(() => {});
+  await dbClient.send(new DeleteTableCommand({ TableName: 'aimorpho-test' })).catch(() => {});
 });
 
 // Expressアプリをインポート

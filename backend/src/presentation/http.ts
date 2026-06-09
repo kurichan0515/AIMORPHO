@@ -3,6 +3,7 @@ export type LambdaEvent = {
   path: string;
   pathParameters?: Record<string, string>;
   queryStringParameters?: Record<string, string> | null;
+  headers?: Record<string, string>;
   body?: string | null;
   requestContext?: { authorizer?: { userId?: string } };
 };

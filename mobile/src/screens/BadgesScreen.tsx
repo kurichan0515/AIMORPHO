@@ -28,7 +28,7 @@ const ALL_BADGES = [
   { id: 'exercise_50',  name: '運動50回',       description: '運動記録50回達成' },
   { id: 'weight_first', name: '初計測',         description: '初めて体重を記録' },
   { id: 'goal_achieve', name: '目標達成！',     description: '目標体重を達成' },
-  { id: 'recovery',     name: '立ち直り',       description: 'ペナルティから回復' },
+  { id: 'recovery',     name: '立ち直り',       description: 'ジャーニー回復' },
 ];
 
 export default function BadgesScreen() {

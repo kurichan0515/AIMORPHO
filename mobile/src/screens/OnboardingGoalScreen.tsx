@@ -20,11 +20,11 @@ export default function OnboardingGoalScreen() {
   const { heightCm, currentWeightKg } = useOnboardingStore();
   const [targetWeight, setTargetWeight] = useState('');
   const [targetBodyFatPct, setTargetBodyFatPct] = useState('');
-  const [mode, setMode] = useState<GoalMode>('diet');
+  const [mode, setMode] = useState<GoalMode>('maintain');
   const [loading, setLoading] = useState(false);
 
   const stdWeight    = heightCm ? Math.round(heightCm * heightCm * 22 / 10000 * 10) / 10 : null;
-  const beautyWeight = heightCm ? Math.round(heightCm * heightCm * 20 / 10000 * 10) / 10 : null;
+  const athleteWeight = heightCm ? Math.round(heightCm * heightCm * 24 / 10000 * 10) / 10 : null;
 
   useEffect(() => {
     const tw = parseFloat(targetWeight);
@@ -65,20 +65,20 @@ export default function OnboardingGoalScreen() {
 
         <Text style={styles.title}>目標設定</Text>
 
-        {(stdWeight || beautyWeight) && (
+        {(stdWeight || athleteWeight) && (
           <View style={styles.hintBox}>
             <Text style={styles.hintTitle}>📊 あなたの身長の目安体重</Text>
             <View style={styles.hintRow}>
               {stdWeight && (
                 <View style={styles.hintItem}>
-                  <Text style={styles.hintLabel}>標準体重</Text>
+                  <Text style={styles.hintLabel}>標準 (BMI 22)</Text>
                   <Text style={styles.hintValue}>{stdWeight} kg</Text>
                 </View>
               )}
-              {beautyWeight && (
+              {athleteWeight && (
                 <View style={styles.hintItem}>
-                  <Text style={styles.hintLabel}>美容体重</Text>
-                  <Text style={styles.hintValue}>{beautyWeight} kg</Text>
+                  <Text style={styles.hintLabel}>アスリート (BMI 24)</Text>
+                  <Text style={styles.hintValue}>{athleteWeight} kg</Text>
                 </View>
               )}
               {currentWeightKg && (

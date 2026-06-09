@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
-export const TABLE_NAME = process.env.DYNAMODB_TABLE ?? 'yasrun';
+export const TABLE_NAME = process.env.DYNAMODB_TABLE ?? 'aimorpho';
 
 const clientConfig: ConstructorParameters<typeof DynamoDBClient>[0] = {
   region: process.env.AWS_REGION ?? 'ap-northeast-1',

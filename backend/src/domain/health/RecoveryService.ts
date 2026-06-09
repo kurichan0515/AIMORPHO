@@ -7,13 +7,16 @@ export type RecoveryInput = {
   recentExercise: ExerciseLog[];
   recentKcal3days: number[];
   tdee: number;
+  goalMode?: string;
 };
 
-export const checkRecoveryCondition = ({ streakDays, recentExercise, recentKcal3days, tdee }: RecoveryInput): boolean => {
+export const checkRecoveryCondition = ({ streakDays, recentExercise, recentKcal3days, tdee, goalMode }: RecoveryInput): boolean => {
   if (streakDays < 3) return false;
   const allExercised = recentExercise.length >= 3 && recentExercise.every(e => e.completed);
   if (!allExercised) return false;
   const avgKcal = recentKcal3days.reduce((s, v) => s + v, 0) / 3;
+  if (goalMode === 'bulk')     return avgKcal >= tdee;
+  if (goalMode === 'maintain') return Math.abs(avgKcal - tdee) <= tdee * 0.1;
   return avgKcal <= tdee;
 };
 

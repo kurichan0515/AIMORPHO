@@ -8,7 +8,7 @@ const getApiKey = async (): Promise<string | null> => {
   if (_apiKey) return _apiKey;
   if (process.env.GEMINI_API_KEY) { _apiKey = process.env.GEMINI_API_KEY; return _apiKey; }
   try {
-    const r = await sm.send(new GetSecretValueCommand({ SecretId: 'yasrun/gemini-api-key' }));
+    const r = await sm.send(new GetSecretValueCommand({ SecretId: 'aimorpho/gemini-api-key' }));
     _apiKey = JSON.parse(r.SecretString!).GEMINI_API_KEY;
     return _apiKey;
   } catch { return null; }
@@ -88,6 +88,7 @@ const AI_TONE_INSTRUCTION: Record<AiTone, string> = {
 
 export type DailyAdviceContext = {
   age: number; heightCm: number; currentWeight: number; targetWeight: number;
+  goalMode?: string;
   lifestyle: string; aiTone: AiTone; currentDays: number; bodyState: number;
   recentWeights: number[]; recentKcal: number[]; recentExercise: string[];
 };
@@ -96,13 +97,26 @@ export type DailyAdviceResult = {
   greeting: string; meal_advice: string; exercise_advice: string; error?: string;
 };
 
+const GOAL_MODE_LABEL: Record<string, string> = {
+  diet:     '体重を減らす（減量）',
+  bulk:     '体重・筋肉を増やす（増量）',
+  maintain: '体型を維持する（維持）',
+};
+
 export const generateDailyAdvice = async (ctx: DailyAdviceContext): Promise<DailyAdviceResult> => {
   const toneInstruction = AI_TONE_INSTRUCTION[ctx.aiTone] ?? AI_TONE_INSTRUCTION.friendly;
-  const diff = (ctx.currentWeight - ctx.targetWeight).toFixed(1);
+  const rawDiff = ctx.currentWeight - ctx.targetWeight;
+  const mode = ctx.goalMode ?? 'diet';
+  const goalLabel = GOAL_MODE_LABEL[mode] ?? GOAL_MODE_LABEL.diet;
+  const diffLabel = mode === 'bulk'
+    ? `あと${Math.abs(rawDiff).toFixed(1)}kg増加`
+    : mode === 'maintain'
+    ? `目標体重との差: ±${Math.abs(rawDiff).toFixed(1)}kg`
+    : `あと${Math.abs(rawDiff).toFixed(1)}kg`;
   const trend = ctx.recentWeights.length >= 2
     ? (ctx.recentWeights[0] - ctx.recentWeights[ctx.recentWeights.length - 1]).toFixed(1) : '0';
 
-  const prompt = `# ユーザー情報\n- 年齢: ${ctx.age}歳 / 身長: ${ctx.heightCm}cm\n- 現在体重: ${ctx.currentWeight}kg / 目標体重: ${ctx.targetWeight}kg（あと${diff}kg）\n- 7日間体重推移: ${ctx.recentWeights.join('→')}kg（${Number(trend) > 0 ? '+' : ''}${trend}kg）\n- 活動レベル: ${ctx.lifestyle}\n- ストリーク: ${ctx.currentDays}日\n- 体型ペナルティ: ${ctx.bodyState}/4\n- 直近3日カロリー: ${ctx.recentKcal.map(k => k + 'kcal').join(' / ')}\n- 直近3日運動: ${ctx.recentExercise.length ? ctx.recentExercise.join(', ') : 'なし'}\n\n# 指示\n${toneInstruction}\n上記データをもとに今日のアドバイスを**JSONのみ**で返してください。\n\n{"greeting":"今日の挨拶（1文）","meal_advice":"食事アドバイス（2文以内）","exercise_advice":"運動アドバイス（2文以内）"}`;
+  const prompt = `# ユーザー情報\n- 年齢: ${ctx.age}歳 / 身長: ${ctx.heightCm}cm\n- 目標: ${goalLabel}\n- 現在体重: ${ctx.currentWeight}kg / 目標体重: ${ctx.targetWeight}kg（${diffLabel}）\n- 7日間体重推移: ${ctx.recentWeights.join('→')}kg（${Number(trend) > 0 ? '+' : ''}${trend}kg）\n- 活動レベル: ${ctx.lifestyle}\n- ストリーク: ${ctx.currentDays}日\n- 体型変化進捗: ${ctx.bodyState}/4\n- 直近3日カロリー: ${ctx.recentKcal.map(k => k + 'kcal').join(' / ')}\n- 直近3日運動: ${ctx.recentExercise.length ? ctx.recentExercise.join(', ') : 'なし'}\n\n# 指示\n${toneInstruction}\nユーザーの目標（${goalLabel}）に沿ったアドバイスを**JSONのみ**で返してください。\n\n{"greeting":"今日の挨拶（1文）","meal_advice":"食事アドバイス（2文以内）","exercise_advice":"運動アドバイス（2文以内）"}`;
 
   const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
   const text = extractText(raw);
