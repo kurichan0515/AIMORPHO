@@ -20,6 +20,7 @@ export const recordExercise = (body: {
   durationMin?: number;
   kcalBurned?: number;
   completed?: boolean;
+  muscleGroups?: string[];
 }) => api.post('/logs/exercise', body).then(r => r.data);
 
 export const getExerciseHistory = (params?: { from?: string; to?: string; limit?: number }) =>

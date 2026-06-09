@@ -8,7 +8,7 @@ const userDeps = { userRepo: deps.userRepo };
 const badgeDeps = { badgeRepo: deps.badgeRepo };
 
 const ALLOWED_PROFILE_FIELDS: Array<keyof UpdateProfileInput> = [
-  'displayName', 'age', 'heightCm', 'weightKg', 'bodyFatPct', 'lifestyle', 'aiTone', 'bodyBalance',
+  'displayName', 'age', 'heightCm', 'weightKg', 'bodyFatPct', 'lifestyle', 'aiTone', 'hasGym', 'bodyBalance',
 ];
 
 export const handler = async (event: LambdaEvent) => {

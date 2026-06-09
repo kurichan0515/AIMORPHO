@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Alert,
+  ScrollView, KeyboardAvoidingView, Platform, Alert, Switch,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../api/client';
@@ -42,6 +42,7 @@ export default function OnboardingProfileScreen() {
     bodyFatPct: '',
     lifestyle: 'moderate',
     aiTone: 'friendly',
+    hasGym: false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -75,6 +76,7 @@ export default function OnboardingProfileScreen() {
         bodyFatPct,
         lifestyle: form.lifestyle,
         aiTone: form.aiTone,
+        hasGym: form.hasGym,
       });
       setProfile({ heightCm, currentWeightKg: weightKg, gender: form.gender || null });
       navigation.navigate('OnboardingGoal');
@@ -195,6 +197,18 @@ export default function OnboardingProfileScreen() {
           ))}
         </View>
 
+        <View style={styles.gymRow}>
+          <View>
+            <Text style={styles.label}>ジムに通っている <Text style={styles.optional}>（任意）</Text></Text>
+            <Text style={styles.gymDesc}>ONにするとジムのウェイトメニューを運動提案に含めます</Text>
+          </View>
+          <Switch
+            value={form.hasGym}
+            onValueChange={v => setForm(p => ({ ...p, hasGym: v }))}
+            trackColor={{ true: '#007AFF' }}
+          />
+        </View>
+
         <TouchableOpacity style={styles.nextBtn} onPress={next} disabled={loading}>
           <Text style={styles.nextBtnText}>{loading ? '保存中...' : '次へ →'}</Text>
         </TouchableOpacity>
@@ -235,6 +249,8 @@ const styles = StyleSheet.create({
   toneEmoji:        { fontSize: 20, marginBottom: 4 },
   toneText:         { fontSize: 13, color: '#333', fontWeight: '600' },
   toneTextActive:   { color: '#FFF' },
+  gymRow:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 10, padding: 14, marginTop: 16, marginBottom: 4 },
+  gymDesc:          { fontSize: 11, color: '#888', marginTop: 2, maxWidth: 240 },
   nextBtn:          { backgroundColor: '#007AFF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 16 },
   nextBtnText:      { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
 });

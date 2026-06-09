@@ -13,6 +13,7 @@ export type User = {
   bodyFatPct?: number;
   lifestyle: Lifestyle;
   aiTone: AiTone;
+  hasGym?: boolean;
   bodyBalance?: number;
   timezone: string;
   createdAt: DateString;
@@ -22,5 +23,5 @@ export type User = {
 export type UserProfile = Omit<User, 'passwordHash'>;
 
 export type UpdateProfileInput = Partial<Pick<User,
-  'displayName' | 'age' | 'heightCm' | 'weightKg' | 'bodyFatPct' | 'lifestyle' | 'aiTone' | 'bodyBalance'
+  'displayName' | 'age' | 'heightCm' | 'weightKg' | 'bodyFatPct' | 'lifestyle' | 'aiTone' | 'hasGym' | 'bodyBalance'
 >>;

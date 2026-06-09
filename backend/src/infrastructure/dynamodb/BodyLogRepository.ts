@@ -39,6 +39,7 @@ export class BodyLogRepository implements IBodyLogRepository {
         durationMin: log.durationMin,
         kcalBurned: log.kcalBurned,
         completed: log.completed,
+        muscleGroups: log.muscleGroups,
         recordedAt: log.recordedAt,
       },
     }));
@@ -82,6 +83,7 @@ export class BodyLogRepository implements IBodyLogRepository {
       durationMin: i.durationMin as number,
       kcalBurned: i.kcalBurned as number,
       completed: i.completed as boolean,
+      muscleGroups: i.muscleGroups as string[] | undefined,
       recordedAt: i.recordedAt as string,
     };
   }

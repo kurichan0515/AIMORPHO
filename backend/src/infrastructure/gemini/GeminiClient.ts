@@ -89,7 +89,7 @@ const AI_TONE_INSTRUCTION: Record<AiTone, string> = {
 export type DailyAdviceContext = {
   age: number; heightCm: number; currentWeight: number; targetWeight: number;
   goalMode?: string;
-  lifestyle: string; aiTone: AiTone; currentDays: number; bodyState: number;
+  lifestyle: string; aiTone: AiTone; hasGym?: boolean; currentDays: number; bodyState: number;
   recentWeights: number[]; recentKcal: number[]; recentExercise: string[];
 };
 
@@ -116,7 +116,8 @@ export const generateDailyAdvice = async (ctx: DailyAdviceContext): Promise<Dail
   const trend = ctx.recentWeights.length >= 2
     ? (ctx.recentWeights[0] - ctx.recentWeights[ctx.recentWeights.length - 1]).toFixed(1) : '0';
 
-  const prompt = `# ユーザー情報\n- 年齢: ${ctx.age}歳 / 身長: ${ctx.heightCm}cm\n- 目標: ${goalLabel}\n- 現在体重: ${ctx.currentWeight}kg / 目標体重: ${ctx.targetWeight}kg（${diffLabel}）\n- 7日間体重推移: ${ctx.recentWeights.join('→')}kg（${Number(trend) > 0 ? '+' : ''}${trend}kg）\n- 活動レベル: ${ctx.lifestyle}\n- ストリーク: ${ctx.currentDays}日\n- 体型変化進捗: ${ctx.bodyState}/4\n- 直近3日カロリー: ${ctx.recentKcal.map(k => k + 'kcal').join(' / ')}\n- 直近3日運動: ${ctx.recentExercise.length ? ctx.recentExercise.join(', ') : 'なし'}\n\n# 指示\n${toneInstruction}\nユーザーの目標（${goalLabel}）に沿ったアドバイスを**JSONのみ**で返してください。\n\n{"greeting":"今日の挨拶（1文）","meal_advice":"食事アドバイス（2文以内）","exercise_advice":"運動アドバイス（2文以内）"}`;
+  const gymLabel = ctx.hasGym === true ? 'ジム通い: あり（ジムのウェイトトレーニングメニューを提案可）' : ctx.hasGym === false ? 'ジム通い: なし（自宅・屋外メニューのみ提案）' : 'ジム通い: 不明';
+  const prompt = `# ユーザー情報\n- 年齢: ${ctx.age}歳 / 身長: ${ctx.heightCm}cm\n- 目標: ${goalLabel}\n- 現在体重: ${ctx.currentWeight}kg / 目標体重: ${ctx.targetWeight}kg（${diffLabel}）\n- 7日間体重推移: ${ctx.recentWeights.join('→')}kg（${Number(trend) > 0 ? '+' : ''}${trend}kg）\n- 活動レベル: ${ctx.lifestyle}\n- ${gymLabel}\n- ストリーク: ${ctx.currentDays}日\n- 体型変化進捗: ${ctx.bodyState}/4\n- 直近3日カロリー: ${ctx.recentKcal.map(k => k + 'kcal').join(' / ')}\n- 直近3日運動: ${ctx.recentExercise.length ? ctx.recentExercise.join(', ') : 'なし'}\n\n# 指示\n${toneInstruction}\nユーザーの目標（${goalLabel}）に沿ったアドバイスを**JSONのみ**で返してください。ジム通いの有無に応じた運動提案をしてください。\n\n{"greeting":"今日の挨拶（1文）","meal_advice":"食事アドバイス（2文以内）","exercise_advice":"運動アドバイス（2文以内）"}`;
 
   const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
   const text = extractText(raw);
@@ -124,6 +125,58 @@ export const generateDailyAdvice = async (ctx: DailyAdviceContext): Promise<Dail
     return parseJson(text) as DailyAdviceResult;
   } catch {
     return { greeting: '今日も頑張ろう！', meal_advice: 'バランスよく食べましょう。', exercise_advice: '少し体を動かしましょう。', error: 'parse_failed' };
+  }
+};
+
+export type MealSuggestionResult = {
+  suggestion: string;
+  meals: Array<{ name: string; kcal: number; protein_g: number; fat_g: number; carb_g: number; reason: string }>;
+};
+
+export const generateMealSuggestion = async (ctx: {
+  age: number; heightCm: number; currentWeight: number; targetWeight: number;
+  goalMode: string; lifestyle: string; aiTone: AiTone;
+  todayKcal: number; todayProtein: number; todayFat: number; todayCarb: number;
+  targetKcal: number;
+}): Promise<MealSuggestionResult> => {
+  const toneInstruction = AI_TONE_INSTRUCTION[ctx.aiTone] ?? AI_TONE_INSTRUCTION.friendly;
+  const remaining = Math.max(0, ctx.targetKcal - ctx.todayKcal);
+  const prompt = `# ユーザー情報\n- 年齢:${ctx.age}歳 / 身長:${ctx.heightCm}cm / 体重:${ctx.currentWeight}kg\n- 目標:${GOAL_MODE_LABEL[ctx.goalMode] ?? ctx.goalMode} / 目標体重:${ctx.targetWeight}kg\n- 活動レベル:${ctx.lifestyle}\n- 目標摂取kcal:${ctx.targetKcal}kcal\n- 今日の摂取状況: ${ctx.todayKcal}kcal（たんぱく質:${ctx.todayProtein}g / 脂質:${ctx.todayFat}g / 糖質:${ctx.todayCarb}g）\n- 残り摂取可能:${remaining}kcal\n\n# 指示\n${toneInstruction}\n残り摂取カロリーに合わせた食事提案を**JSONのみ**で返してください。\n\n{"suggestion":"全体コメント（1〜2文）","meals":[{"name":"料理名","kcal":数値,"protein_g":数値,"fat_g":数値,"carb_g":数値,"reason":"選んだ理由（1文）"}]}`;
+  const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
+  const text = extractText(raw);
+  try {
+    return parseJson(text) as MealSuggestionResult;
+  } catch {
+    return { suggestion: 'バランスよく食べましょう。', meals: [] };
+  }
+};
+
+export type ExerciseSuggestionItem = {
+  name: string; sets: string; kcal_estimate: number; muscle_groups: string[]; reason: string;
+};
+export type ExerciseSuggestionResult = {
+  summary: string;
+  exercises: ExerciseSuggestionItem[];
+};
+
+export const generateExerciseSuggestion = async (ctx: {
+  age: number; heightCm: number; currentWeight: number; targetWeight: number;
+  goalMode: string; lifestyle: string; aiTone: AiTone; hasGym: boolean;
+  goToGym: boolean;
+  recentMuscleGroups: string[];
+}): Promise<ExerciseSuggestionResult> => {
+  const toneInstruction = AI_TONE_INSTRUCTION[ctx.aiTone] ?? AI_TONE_INSTRUCTION.friendly;
+  const location = ctx.goToGym ? 'ジム（マシン・フリーウェイト利用可）' : '自宅・屋外（器具なし）';
+  const avoidGroups = ctx.recentMuscleGroups.length
+    ? `直近1週間で鍛えた部位: ${[...new Set(ctx.recentMuscleGroups)].join(', ')} → これらを避けてバランスよく提案すること`
+    : '直近1週間の記録なし → バランスよく提案すること';
+  const prompt = `# ユーザー情報\n- 年齢:${ctx.age}歳 / 身長:${ctx.heightCm}cm / 体重:${ctx.currentWeight}kg\n- 目標:${GOAL_MODE_LABEL[ctx.goalMode] ?? ctx.goalMode} / 目標体重:${ctx.targetWeight}kg\n- 活動レベル:${ctx.lifestyle}\n- トレーニング場所:${location}\n- ${avoidGroups}\n\n# 指示\n${toneInstruction}\n今日のトレーニングメニューを**JSONのみ**で返してください。3〜5種目を提案すること。\n\n{"summary":"今日のメニュー概要（1〜2文）","exercises":[{"name":"種目名","sets":"例: 3×10回","kcal_estimate":消費kcal推定値(整数),"muscle_groups":["部位1","部位2"],"reason":"選んだ理由（1文）"}]}`;
+  const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
+  const text = extractText(raw);
+  try {
+    return parseJson(text) as ExerciseSuggestionResult;
+  } catch {
+    return { summary: '今日も頑張ろう！', exercises: [] };
   }
 };
 

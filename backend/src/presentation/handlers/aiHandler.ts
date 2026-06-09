@@ -23,7 +23,12 @@ export const handler = async (event: LambdaEvent) => {
       const { answer } = body as { answer?: string };
       return toResponse(await AiUseCases.handlePenaltyEvent(aiDeps, userId, answer));
     }
-    if (path === '/ai/goal-message'  && httpMethod === 'GET')  return toResponse(await AiUseCases.getGoalMessage(aiDeps, userId));
+    if (path === '/ai/goal-message'       && httpMethod === 'GET')  return toResponse(await AiUseCases.getGoalMessage(aiDeps, userId));
+    if (path === '/ai/meal-suggestion'    && httpMethod === 'POST') return toResponse(await AiUseCases.getMealSuggestion(aiDeps, userId));
+    if (path === '/ai/exercise-suggestion' && httpMethod === 'POST') {
+      const { goToGym } = body as { goToGym?: boolean };
+      return toResponse(await AiUseCases.getExerciseSuggestion(aiDeps, userId, goToGym ?? false));
+    }
     return error('Not found', 404);
   } catch (err) {
     console.error(err);

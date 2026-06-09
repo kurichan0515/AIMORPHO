@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert,
+  ScrollView, Alert, Switch,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,7 +24,7 @@ const AI_TONE_OPTIONS = [
 ];
 
 export default function ProfileScreen() {
-  const { logout, isAnonymous } = useAuthStore();
+  const { logout, isAnonymous, resetGuestData } = useAuthStore();
   const navigation = useNavigation<any>();
   const qc = useQueryClient();
 
@@ -45,7 +45,7 @@ export default function ProfileScreen() {
 
   const [form, setForm] = useState({
     displayName: '', age: '', heightCm: '', weightKg: '',
-    lifestyle: 'moderate', aiTone: 'friendly',
+    lifestyle: 'moderate', aiTone: 'friendly', hasGym: false,
   });
   const [goalForm, setGoalForm] = useState({ targetWeight: '', mode: 'maintain' as 'diet' | 'maintain' | 'bulk' });
 
@@ -57,6 +57,7 @@ export default function ProfileScreen() {
       weightKg: String(profile.weightKg || ''),
       lifestyle: profile.lifestyle || 'moderate',
       aiTone: profile.aiTone || 'friendly',
+      hasGym: profile.hasGym ?? false,
     });
   }, [profile]);
 
@@ -72,6 +73,7 @@ export default function ProfileScreen() {
       weightKg: parseFloat(form.weightKg) || undefined,
       lifestyle: form.lifestyle,
       aiTone: form.aiTone,
+      hasGym: form.hasGym,
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['profile'] }); Alert.alert('保存しました'); },
     onError: () => Alert.alert('エラー', '保存に失敗しました'),
@@ -86,7 +88,7 @@ export default function ProfileScreen() {
     onError: () => Alert.alert('エラー', '設定に失敗しました'),
   });
 
-  const f = (key: keyof typeof form, val: string) => setForm(prev => ({ ...prev, [key]: val }));
+  const f = (key: keyof typeof form, val: string | boolean) => setForm(prev => ({ ...prev, [key]: val }));
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
@@ -112,6 +114,14 @@ export default function ProfileScreen() {
           <Text style={[styles.optionText, form.lifestyle === o.value && styles.optionTextActive]}>{o.label}</Text>
         </TouchableOpacity>
       ))}
+
+      <View style={styles.switchRow}>
+        <View>
+          <Text style={styles.label}>ジム通い</Text>
+          <Text style={styles.switchDesc}>ONにするとジムメニューを運動提案に含めます</Text>
+        </View>
+        <Switch value={form.hasGym} onValueChange={v => f('hasGym', v)} trackColor={{ true: '#007AFF' }} />
+      </View>
 
       <Text style={styles.label}>AIの口調</Text>
       <View style={styles.toneRow}>
@@ -157,6 +167,19 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.accountBtnSecondary} onPress={() => navigation.navigate('Login')}>
             <Text style={styles.accountBtnSecondaryText}>既存アカウントでログインして引き継ぐ</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.resetBtn}
+            onPress={() => Alert.alert(
+              'データをリセット',
+              'すべての記録・アバター・目標が削除されます。この操作は取り消せません。',
+              [
+                { text: 'キャンセル', style: 'cancel' },
+                { text: 'リセット', style: 'destructive', onPress: () => { qc.clear(); resetGuestData(); } },
+              ]
+            )}
+          >
+            <Text style={styles.resetBtnText}>データをリセット（最初からやり直す）</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -212,6 +235,10 @@ const styles = StyleSheet.create({
   accountBtnText:            { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
   accountBtnSecondary:       { borderWidth: 1, borderColor: '#007AFF', borderRadius: 10, padding: 13, alignItems: 'center' },
   accountBtnSecondaryText:   { color: '#007AFF', fontWeight: '600', fontSize: 14 },
+  switchRow:                 { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 10, padding: 14, marginBottom: 8, elevation: 1 },
+  switchDesc:                { fontSize: 11, color: '#888', marginTop: 2 },
+  resetBtn:                  { marginTop: 12, padding: 12, alignItems: 'center' },
+  resetBtnText:              { color: '#FF3B30', fontSize: 13 },
   accountRegisteredLabel:    { fontSize: 13, color: '#34C759', fontWeight: '600', marginBottom: 4 },
   accountEmail:              { fontSize: 14, color: '#333', marginBottom: 12 },
   logoutBtn:                 { padding: 13, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },

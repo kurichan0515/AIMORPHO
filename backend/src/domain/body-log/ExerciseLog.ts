@@ -6,5 +6,6 @@ export type ExerciseLog = {
   durationMin: number;
   kcalBurned: number;
   completed: boolean;
+  muscleGroups?: string[];
   recordedAt: DateString;
 };

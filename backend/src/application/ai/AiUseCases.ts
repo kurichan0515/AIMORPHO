@@ -2,8 +2,12 @@ import { IUserRepository } from '../../domain/user/IUserRepository';
 import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { IBodyLogRepository } from '../../domain/body-log/IBodyLogRepository';
 import { IMealRepository } from '../../domain/meal/IMealRepository';
-import { generateDailyAdvice, generateInterrogationMessage } from '../../infrastructure/gemini/GeminiClient';
+import {
+  generateDailyAdvice, generateInterrogationMessage,
+  generateMealSuggestion, generateExerciseSuggestion,
+} from '../../infrastructure/gemini/GeminiClient';
 import { AdviceRepository } from '../../infrastructure/dynamodb/AdviceRepository';
+import { calcUserTDEE } from '../../domain/health/RecoveryService';
 import { toJSTDate } from '../../infrastructure/dynamodb/client';
 import { UserId } from '../../domain/shared/types';
 
@@ -47,6 +51,7 @@ export const getDailyAdvice = async (deps: Deps, userId: UserId) => {
     goalMode: goal?.mode,
     lifestyle: user.lifestyle,
     aiTone: user.aiTone,
+    hasGym: user.hasGym,
     currentDays: streak?.currentDays ?? 0,
     bodyState: avatar?.bodyState ?? 0,
     recentWeights: recentWeights.map(w => w.weightKg),
@@ -94,6 +99,62 @@ export const handlePenaltyEvent = async (
   const question = await generateInterrogationMessage({ missedDays, aiTone: user?.aiTone ?? 'friendly' })
     .catch(() => `この${missedDays}日間、運動はしましたか？`);
   return { data: { event: 'interrogation', missedDays, question }, statusCode: 200 } as const;
+};
+
+export const getMealSuggestion = async (deps: Deps, userId: UserId) => {
+  const [user, goal] = await Promise.all([
+    deps.userRepo.findById(userId),
+    deps.userRepo.getGoal(userId),
+  ]);
+  if (!user) return { error: 'User not found', statusCode: 404 } as const;
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayMeals = await deps.mealRepo.getRecent(userId, todayStart.toISOString());
+  const todayKcal    = todayMeals.reduce((s, m) => s + m.kcal, 0);
+  const todayProtein = todayMeals.reduce((s, m) => s + (m.proteinG ?? 0), 0);
+  const todayFat     = todayMeals.reduce((s, m) => s + (m.fatG ?? 0), 0);
+  const todayCarb    = todayMeals.reduce((s, m) => s + (m.carbG ?? 0), 0);
+  const tdee = calcUserTDEE(user);
+  const targetKcal = goal?.mode === 'diet' ? Math.round(tdee * 0.85) : goal?.mode === 'bulk' ? Math.round(tdee * 1.15) : tdee;
+
+  const result = await generateMealSuggestion({
+    age: user.age ?? 30,
+    heightCm: user.heightCm ?? 165,
+    currentWeight: user.weightKg ?? 60,
+    targetWeight: goal?.targetWeight ?? user.weightKg ?? 60,
+    goalMode: goal?.mode ?? 'maintain',
+    lifestyle: user.lifestyle,
+    aiTone: user.aiTone,
+    todayKcal, todayProtein, todayFat, todayCarb, targetKcal,
+  });
+  return { data: result, statusCode: 200 } as const;
+};
+
+export const getExerciseSuggestion = async (deps: Deps, userId: UserId, goToGym: boolean) => {
+  const [user, goal] = await Promise.all([
+    deps.userRepo.findById(userId),
+    deps.userRepo.getGoal(userId),
+  ]);
+  if (!user) return { error: 'User not found', statusCode: 404 } as const;
+
+  const oneWeekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const recentExercise = await deps.bodyLogRepo.getRecentExercise(userId, oneWeekAgo);
+  const recentMuscleGroups = recentExercise.flatMap(e => e.muscleGroups ?? []);
+
+  const result = await generateExerciseSuggestion({
+    age: user.age ?? 30,
+    heightCm: user.heightCm ?? 165,
+    currentWeight: user.weightKg ?? 60,
+    targetWeight: goal?.targetWeight ?? user.weightKg ?? 60,
+    goalMode: goal?.mode ?? 'maintain',
+    lifestyle: user.lifestyle,
+    aiTone: user.aiTone,
+    hasGym: user.hasGym ?? false,
+    goToGym,
+    recentMuscleGroups,
+  });
+  return { data: result, statusCode: 200 } as const;
 };
 
 const GOAL_ACHIEVE_MESSAGES: Record<string, (kg: number) => string> = {

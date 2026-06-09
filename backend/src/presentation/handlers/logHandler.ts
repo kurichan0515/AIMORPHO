@@ -28,9 +28,9 @@ export const handler = async (event: LambdaEvent) => {
       return toResponse(await BodyLogUseCases.getWeightHistory(logDeps, userId, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
     }
     if (path === '/logs/exercise' && httpMethod === 'POST') {
-      const { exerciseName, durationMin, kcalBurned, completed } = body as { exerciseName?: string; durationMin?: number; kcalBurned?: number; completed?: boolean };
+      const { exerciseName, durationMin, kcalBurned, completed, muscleGroups } = body as { exerciseName?: string; durationMin?: number; kcalBurned?: number; completed?: boolean; muscleGroups?: string[] };
       if (!exerciseName) return error('exerciseName required');
-      return toResponse(await BodyLogUseCases.recordExercise(logDeps, userId, { exerciseName, durationMin, kcalBurned, completed }));
+      return toResponse(await BodyLogUseCases.recordExercise(logDeps, userId, { exerciseName, durationMin, kcalBurned, completed, muscleGroups }));
     }
     if (path === '/logs/exercise' && httpMethod === 'GET') {
       return toResponse(await BodyLogUseCases.getExerciseHistory(logDeps, userId, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));

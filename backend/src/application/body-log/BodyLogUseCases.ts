@@ -44,7 +44,7 @@ export const getWeightHistory = async (deps: Deps, userId: UserId, from: string,
 };
 
 export const recordExercise = async (deps: Deps, userId: UserId, input: {
-  exerciseName: string; durationMin?: number; kcalBurned?: number; completed?: boolean;
+  exerciseName: string; durationMin?: number; kcalBurned?: number; completed?: boolean; muscleGroups?: string[];
 }) => {
   const now = new Date().toISOString();
   const log: ExerciseLog = {
@@ -53,6 +53,7 @@ export const recordExercise = async (deps: Deps, userId: UserId, input: {
     durationMin: input.durationMin ?? 0,
     kcalBurned: input.kcalBurned ?? 0,
     completed: input.completed ?? true,
+    muscleGroups: input.muscleGroups,
     recordedAt: now,
   };
   await deps.bodyLogRepo.saveExercise(log);

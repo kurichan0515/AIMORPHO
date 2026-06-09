@@ -34,6 +34,7 @@ interface AuthState {
   upgradeAccount: (email: string, password: string) => Promise<void>;
   loginAndRestore: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  resetGuestData: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -98,6 +99,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     await apiLogout();
+    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userId', ONBOARDING_KEY, IS_ANONYMOUS_KEY, 'myGroupId']);
+    set({ isLoggedIn: false, userId: null, isAnonymous: true, onboardingCompleted: false, isInitialized: false });
+    await get().init();
+  },
+
+  resetGuestData: async () => {
     await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userId', ONBOARDING_KEY, IS_ANONYMOUS_KEY, 'myGroupId']);
     set({ isLoggedIn: false, userId: null, isAnonymous: true, onboardingCompleted: false, isInitialized: false });
     await get().init();
