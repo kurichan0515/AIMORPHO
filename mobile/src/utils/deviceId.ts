@@ -16,3 +16,10 @@ export const getDeviceId = async (): Promise<string> => {
   }
   return id;
 };
+
+// ゲストデータのリセット用。新しいdeviceIdを発行 → 次回init()で別の匿名ユーザーとして開始する。
+export const regenerateDeviceId = async (): Promise<string> => {
+  const id = generateUUID();
+  await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+  return id;
+};

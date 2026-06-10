@@ -108,9 +108,11 @@ export const getMealSuggestion = async (deps: Deps, userId: UserId) => {
   ]);
   if (!user) return { error: 'User not found', statusCode: 404 } as const;
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayMeals = await deps.mealRepo.getRecent(userId, todayStart.toISOString());
+  // JST基準で「今日」を判定（Lambdaは UTC のため setHours では9時間ずれる）
+  const todayJST = toJSTDate(new Date().toISOString());
+  const since = new Date(Date.now() - 2 * 86400000).toISOString();
+  const recentMeals = await deps.mealRepo.getRecent(userId, since);
+  const todayMeals = recentMeals.filter(m => toJSTDate(m.recordedAt) === todayJST);
   const todayKcal    = todayMeals.reduce((s, m) => s + m.kcal, 0);
   const todayProtein = todayMeals.reduce((s, m) => s + (m.proteinG ?? 0), 0);
   const todayFat     = todayMeals.reduce((s, m) => s + (m.fatG ?? 0), 0);
