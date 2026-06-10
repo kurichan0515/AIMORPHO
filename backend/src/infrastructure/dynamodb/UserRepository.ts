@@ -1,5 +1,5 @@
 import {
-  GetCommand, PutCommand, UpdateCommand, QueryCommand, ScanCommand,
+  GetCommand, PutCommand, UpdateCommand, ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IUserRepository } from '../../domain/user/IUserRepository';

@@ -7,7 +7,7 @@ import { BadgeService } from '../../domain/badge/BadgeService';
 import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { checkRecoveryCondition, calcUserTDEE } from '../../domain/health/RecoveryService';
-import { UserId, DateString } from '../../domain/shared/types';
+import { UserId } from '../../domain/shared/types';
 import { toJSTDate } from '../../infrastructure/dynamodb/client';
 
 type Deps = {

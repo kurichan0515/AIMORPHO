@@ -2,7 +2,7 @@ import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { IUserRepository } from '../../domain/user/IUserRepository';
 import { Avatar } from '../../domain/avatar/Avatar';
 import { generateAvatarImage } from '../../infrastructure/gemini/GeminiClient';
-import { getUploadUrl, getObjectBase64, putObject, publicUrl, BUCKET } from '../../infrastructure/s3/S3Client';
+import { getUploadUrl, getObjectBase64, putObject, publicUrl } from '../../infrastructure/s3/S3Client';
 import { UserId, GoalMode } from '../../domain/shared/types';
 
 type Deps = { avatarRepo: IAvatarRepository; userRepo: IUserRepository };

@@ -1,4 +1,4 @@
-import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IBodyLogRepository } from '../../domain/body-log/IBodyLogRepository';
 import { WeightLog } from '../../domain/body-log/WeightLog';

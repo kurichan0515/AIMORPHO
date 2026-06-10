@@ -1,4 +1,4 @@
-import { LambdaEvent, ok, error, parseBody, getUserId, toResponse } from '../http';
+import { LambdaEvent, error, parseBody, getUserId, toResponse } from '../http';
 import { deps } from '../container';
 import * as UserUseCases from '../../application/user/UserUseCases';
 import { UpdateProfileInput } from '../../domain/user/User';

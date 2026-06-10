@@ -1,11 +1,11 @@
-import { LambdaEvent, ok, error, parseBody, toResponse } from '../http';
+import { LambdaEvent, error, parseBody, getUserId, toResponse } from '../http';
 import { deps } from '../container';
 import * as AuthUseCases from '../../application/auth/AuthUseCases';
 
 const authDeps = { userRepo: deps.userRepo, blacklist: deps.blacklist };
 
 export const handler = async (event: LambdaEvent) => {
-  const { httpMethod, path, requestContext } = event;
+  const { httpMethod, path } = event;
   const body = parseBody(event.body);
 
   try {
@@ -15,7 +15,7 @@ export const handler = async (event: LambdaEvent) => {
       return toResponse(await AuthUseCases.anonymousLogin(authDeps, { userId }));
     }
     if (path === '/auth/upgrade' && httpMethod === 'POST') {
-      const userId = (requestContext as any)?.authorizer?.userId as string | undefined;
+      const userId = getUserId(event) ?? undefined;
       if (!userId) return error('Unauthorized', 401);
       const { email, password } = body as { email: string; password: string };
       if (!email || !password) return error('email and password required');

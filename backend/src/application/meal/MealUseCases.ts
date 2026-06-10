@@ -2,7 +2,7 @@ import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { MealLog } from '../../domain/meal/MealLog';
 import { BadgeService } from '../../domain/badge/BadgeService';
 import { analyzeMeal } from '../../infrastructure/gemini/GeminiClient';
-import { getUploadUrl, getObjectBase64, publicUrl, BUCKET } from '../../infrastructure/s3/S3Client';
+import { getUploadUrl, getObjectBase64, publicUrl } from '../../infrastructure/s3/S3Client';
 import { UserId } from '../../domain/shared/types';
 
 type Deps = { mealRepo: IMealRepository; badgeSvc: BadgeService };

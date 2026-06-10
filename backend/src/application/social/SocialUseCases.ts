@@ -3,7 +3,6 @@ import { IGroupRepository } from '../../domain/social/IGroupRepository';
 import { Group, GroupMember } from '../../domain/social/Group';
 import { IUserRepository } from '../../domain/user/IUserRepository';
 import { IBadgeRepository } from '../../domain/badge/IBadgeRepository';
-import { emptyStreak } from '../../domain/user/Streak';
 import { UserId, GroupId } from '../../domain/shared/types';
 
 type Deps = { groupRepo: IGroupRepository; userRepo: IUserRepository; badgeRepo: IBadgeRepository };
