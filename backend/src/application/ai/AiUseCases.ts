@@ -7,6 +7,8 @@ import {
   generateMealSuggestion, generateExerciseSuggestion,
 } from '../../infrastructure/gemini/GeminiClient';
 import { AdviceRepository } from '../../infrastructure/dynamodb/AdviceRepository';
+import { IUsageRepository } from '../../domain/usage/IUsageRepository';
+import { FREE_DAILY_LIMITS } from '../../domain/usage/UsageLimits';
 import { calcUserTDEE } from '../../domain/health/RecoveryService';
 import { toJSTDate } from '../../infrastructure/dynamodb/client';
 import { UserId } from '../../domain/shared/types';
@@ -17,6 +19,7 @@ type Deps = {
   bodyLogRepo: IBodyLogRepository;
   mealRepo: IMealRepository;
   adviceRepo: AdviceRepository;
+  usageRepo: IUsageRepository;
 };
 
 export const getDailyAdvice = async (deps: Deps, userId: UserId) => {
@@ -110,6 +113,11 @@ export const getMealSuggestion = async (deps: Deps, userId: UserId) => {
 
   // JST基準で「今日」を判定（Lambdaは UTC のため setHours では9時間ずれる）
   const todayJST = toJSTDate(new Date().toISOString());
+
+  if (user.subscriptionTier !== 'premium') {
+    const allowed = await deps.usageRepo.tryIncrement(userId, todayJST, 'mealSuggestion', FREE_DAILY_LIMITS.mealSuggestion);
+    if (!allowed) return { error: 'Daily usage limit reached', statusCode: 429 } as const;
+  }
   const since = new Date(Date.now() - 2 * 86400000).toISOString();
   const recentMeals = await deps.mealRepo.getRecent(userId, since);
   const todayMeals = recentMeals.filter(m => toJSTDate(m.recordedAt) === todayJST);
@@ -139,6 +147,12 @@ export const getExerciseSuggestion = async (deps: Deps, userId: UserId, goToGym:
     deps.userRepo.getGoal(userId),
   ]);
   if (!user) return { error: 'User not found', statusCode: 404 } as const;
+
+  if (user.subscriptionTier !== 'premium') {
+    const todayJST = toJSTDate(new Date().toISOString());
+    const allowed = await deps.usageRepo.tryIncrement(userId, todayJST, 'exerciseSuggestion', FREE_DAILY_LIMITS.exerciseSuggestion);
+    if (!allowed) return { error: 'Daily usage limit reached', statusCode: 429 } as const;
+  }
 
   const oneWeekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
   const recentExercise = await deps.bodyLogRepo.getRecentExercise(userId, oneWeekAgo);

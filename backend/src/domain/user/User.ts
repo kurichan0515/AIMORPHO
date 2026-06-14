@@ -18,6 +18,7 @@ export type User = {
   timezone: string;
   createdAt: DateString;
   fcmToken?: string;
+  subscriptionTier?: 'free' | 'premium';
 };
 
 export type UserProfile = Omit<User, 'passwordHash'>;

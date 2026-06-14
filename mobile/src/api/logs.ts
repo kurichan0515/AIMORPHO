@@ -12,6 +12,17 @@ export const getMealUploadUrl = () =>
 export const analyzeMeal = (s3Key: string) =>
   api.post('/logs/meal', { s3Key }).then(r => r.data);
 
+export const confirmMeal = (input: {
+  s3Key: string;
+  menuName: string;
+  kcal: number;
+  proteinG: number;
+  fatG: number;
+  carbG: number;
+  confidence?: 'high' | 'medium' | 'low';
+  geminiRaw?: string;
+}) => api.post('/logs/meal/confirm', input).then(r => r.data);
+
 export const getMealHistory = (params?: { from?: string; to?: string; limit?: number }) =>
   api.get('/logs/meal', { params }).then(r => r.data);
 

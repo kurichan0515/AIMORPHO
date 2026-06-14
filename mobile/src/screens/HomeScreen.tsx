@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useNavigation } from '@react-navigation/native';
 import {
   getDailyAdvice, sendPenaltyAnswer,
   getMealSuggestion, getExerciseSuggestion,
@@ -12,8 +11,10 @@ import api from '../api/client';
 import { useAvatarStore } from '../store/useAvatarStore';
 import { DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
 
+const isLimitError = (err: any) => err?.response?.status === 429;
+const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
+
 export default function HomeScreen() {
-  const navigation = useNavigation<any>();
   const { bodyState, avatarImages } = useAvatarStore();
   const [showInterrogation, setShowInterrogation] = useState(false);
   const [interrogationMsg, setInterrogationMsg] = useState('');
@@ -22,12 +23,23 @@ export default function HomeScreen() {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [recordingExercise, setRecordingExercise] = useState<string | null>(null);
+  const [recordedExercises, setRecordedExercises] = useState<string[]>([]);
+  const [goToGym, setGoToGym] = useState(false);
 
   const { data: advice, isLoading: adviceLoading } = useQuery({
     queryKey: ['dailyAdvice'],
     queryFn: getDailyAdvice,
     staleTime: 1000 * 60 * 30,
   });
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => api.get('/users/me').then(r => r.data),
+  });
+
+  useEffect(() => {
+    if (profile) { setGoToGym(!!profile.hasGym); }
+  }, [profile]);
 
   useEffect(() => {
     checkPenalty();
@@ -55,14 +67,26 @@ export default function HomeScreen() {
 
   const mealSuggestionMutation = useMutation({
     mutationFn: getMealSuggestion,
-    onSuccess: (data) => { setMealSuggestion(data); setShowMealModal(true); },
-    onError: () => Alert.alert('エラー', '食事提案の取得に失敗しました'),
+    onSuccess: (data) => {
+      if (data.error === 'parse_failed') { Alert.alert('エラー', '食事提案の生成に失敗しました。もう一度お試しください。'); return; }
+      setMealSuggestion(data); setShowMealModal(true);
+    },
+    onError: (err) => {
+      if (isLimitError(err)) { Alert.alert('利用回数の上限', LIMIT_MESSAGE); return; }
+      Alert.alert('エラー', '食事提案の取得に失敗しました');
+    },
   });
 
   const exerciseSuggestionMutation = useMutation({
-    mutationFn: (goToGym: boolean) => getExerciseSuggestion(goToGym),
-    onSuccess: (data) => { setExerciseSuggestion(data); setShowExerciseModal(true); },
-    onError: () => Alert.alert('エラー', 'トレーニング提案の取得に失敗しました'),
+    mutationFn: (goGym: boolean) => getExerciseSuggestion(goGym),
+    onSuccess: (data) => {
+      if (data.error === 'parse_failed') { Alert.alert('エラー', 'トレーニング提案の生成に失敗しました。もう一度お試しください。'); return; }
+      setExerciseSuggestion(data); setShowExerciseModal(true); setRecordedExercises([]);
+    },
+    onError: (err) => {
+      if (isLimitError(err)) { Alert.alert('利用回数の上限', LIMIT_MESSAGE); return; }
+      Alert.alert('エラー', 'トレーニング提案の取得に失敗しました');
+    },
   });
 
   const recordExerciseMutation = useMutation({
@@ -72,24 +96,21 @@ export default function HomeScreen() {
       muscleGroups: item.muscle_groups,
       completed: true,
     }),
-    onSuccess: (_, item) => {
+    onSuccess: (data, item) => {
       setRecordingExercise(null);
-      Alert.alert('記録完了', `${item.name} を記録しました`);
+      setRecordedExercises(prev => [...prev, item.name]);
+      if (data.newBadges?.length) {
+        Alert.alert('バッジ獲得！', data.newBadges.map((b: any) => b.name).join('、'));
+      }
+      if (data.recovered) {
+        Alert.alert('体型回復！', 'アバターの体型が改善しました 🎉');
+      }
+      if (!data.newBadges?.length && !data.recovered) {
+        Alert.alert('記録完了', `${item.name} を記録しました`);
+      }
     },
     onError: () => { setRecordingExercise(null); Alert.alert('エラー', '記録に失敗しました'); },
   });
-
-  const handleExerciseSuggestion = () => {
-    Alert.alert(
-      'トレーニング提案',
-      '今日はジムに行きますか？',
-      [
-        { text: 'ジムに行く', onPress: () => exerciseSuggestionMutation.mutate(true) },
-        { text: '自宅・屋外でする', onPress: () => exerciseSuggestionMutation.mutate(false) },
-        { text: 'キャンセル', style: 'cancel' },
-      ]
-    );
-  };
 
   const currentAvatarUrl = avatarImages[bodyState];
 
@@ -149,16 +170,24 @@ export default function HomeScreen() {
             : <Text style={styles.suggestionBtnText}>🍽️ 食事提案をもらう</Text>
           }
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.suggestionBtn, styles.exerciseSuggestionBtn]}
-          onPress={handleExerciseSuggestion}
-          disabled={exerciseSuggestionMutation.isPending}
-        >
-          {exerciseSuggestionMutation.isPending
-            ? <ActivityIndicator color="#FFF" size="small" />
-            : <Text style={styles.suggestionBtnText}>💪 トレーニング提案</Text>
-          }
-        </TouchableOpacity>
+        <View style={styles.exerciseSuggestionCol}>
+          <TouchableOpacity style={styles.gymCheckRow} onPress={() => setGoToGym(v => !v)}>
+            <View style={[styles.checkboxBox, goToGym && styles.checkboxBoxChecked]}>
+              {goToGym && <Text style={styles.checkboxMark}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxLabel}>ジムに行く</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.suggestionBtn, styles.exerciseSuggestionBtn]}
+            onPress={() => exerciseSuggestionMutation.mutate(goToGym)}
+            disabled={exerciseSuggestionMutation.isPending}
+          >
+            {exerciseSuggestionMutation.isPending
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <Text style={styles.suggestionBtnText}>💪 トレーニング提案</Text>
+            }
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 食事提案モーダル */}
@@ -209,15 +238,15 @@ export default function HomeScreen() {
                       <Text style={styles.exerciseItemMuscle}>{e.muscle_groups.join(' / ')}</Text>
                     </View>
                     <TouchableOpacity
-                      style={[styles.recordBtn, recordingExercise === e.name && styles.recordBtnDone]}
+                      style={[styles.recordBtn, (recordingExercise === e.name || recordedExercises.includes(e.name)) && styles.recordBtnDone]}
                       onPress={() => {
                         setRecordingExercise(e.name);
                         recordExerciseMutation.mutate(e);
                       }}
-                      disabled={recordExerciseMutation.isPending}
+                      disabled={recordExerciseMutation.isPending || recordedExercises.includes(e.name)}
                     >
                       <Text style={styles.recordBtnText}>
-                        {recordingExercise === e.name ? '記録中...' : '記録する'}
+                        {recordedExercises.includes(e.name) ? '記録済み' : recordingExercise === e.name ? '記録中...' : '記録する'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -251,10 +280,16 @@ const styles = StyleSheet.create({
   adviceGreeting:         { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
   adviceLabel:            { fontSize: 12, color: '#666', marginTop: 8 },
   adviceText:             { fontSize: 14, color: '#333', marginTop: 4 },
-  suggestionRow:          { flexDirection: 'row', gap: 8, marginTop: 16 },
+  suggestionRow:          { flexDirection: 'row', gap: 8, marginTop: 16, alignItems: 'flex-end' },
   suggestionBtn:          { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center', justifyContent: 'center', minHeight: 52 },
-  mealSuggestionBtn:      { backgroundColor: '#FF6B35' },
+  mealSuggestionBtn:      { backgroundColor: '#FF6B35', alignSelf: 'stretch' },
+  exerciseSuggestionCol:  { flex: 1, gap: 6 },
   exerciseSuggestionBtn:  { backgroundColor: '#34C759' },
+  gymCheckRow:            { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
+  checkboxBox:            { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: '#999', alignItems: 'center', justifyContent: 'center' },
+  checkboxBoxChecked:     { backgroundColor: '#34C759', borderColor: '#34C759' },
+  checkboxMark:           { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  checkboxLabel:          { fontSize: 13, color: '#444' },
   suggestionBtnText:      { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
   modalContainer:         { flex: 1, backgroundColor: '#F8F9FA' },
   modalHeader:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },

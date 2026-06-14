@@ -42,6 +42,7 @@ export class UserRepository implements IUserRepository {
         bodyBalance: user.bodyBalance,
         timezone: user.timezone,
         createdAt: user.createdAt,
+        subscriptionTier: user.subscriptionTier ?? 'free',
       },
     }));
   }
@@ -163,6 +164,7 @@ export class UserRepository implements IUserRepository {
       bodyBalance: item.bodyBalance as number | undefined,
       timezone: (item.timezone as string) ?? 'Asia/Tokyo',
       createdAt: item.createdAt as string,
+      subscriptionTier: (item.subscriptionTier as User['subscriptionTier']) ?? 'free',
     };
   }
 }
