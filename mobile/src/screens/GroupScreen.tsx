@@ -11,7 +11,6 @@ export default function GroupScreen() {
   const [tab, setTab] = useState<'my' | 'create' | 'join'>('my');
   const [groupName, setGroupName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const qc = useQueryClient();
 
   // 参加グループIDをローカル保存

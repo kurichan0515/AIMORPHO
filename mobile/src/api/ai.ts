@@ -12,7 +12,7 @@ export const getGoalMessage = () =>
 export type MealSuggestionItem = {
   name: string; kcal: number; protein_g: number; fat_g: number; carb_g: number; reason: string;
 };
-export type MealSuggestionResult = { suggestion: string; meals: MealSuggestionItem[] };
+export type MealSuggestionResult = { suggestion: string; meals: MealSuggestionItem[]; error?: string };
 
 export const getMealSuggestion = (): Promise<MealSuggestionResult> =>
   api.post('/ai/meal-suggestion', {}).then(r => r.data);
@@ -20,7 +20,7 @@ export const getMealSuggestion = (): Promise<MealSuggestionResult> =>
 export type ExerciseSuggestionItem = {
   name: string; sets: string; kcal_estimate: number; muscle_groups: string[]; reason: string;
 };
-export type ExerciseSuggestionResult = { summary: string; exercises: ExerciseSuggestionItem[] };
+export type ExerciseSuggestionResult = { summary: string; exercises: ExerciseSuggestionItem[]; error?: string };
 
 export const getExerciseSuggestion = (goToGym: boolean): Promise<ExerciseSuggestionResult> =>
   api.post('/ai/exercise-suggestion', { goToGym }).then(r => r.data);

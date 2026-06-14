@@ -5,6 +5,7 @@ import { AvatarRepository } from '../infrastructure/dynamodb/AvatarRepository';
 import { BadgeRepository } from '../infrastructure/dynamodb/BadgeRepository';
 import { GroupRepository } from '../infrastructure/dynamodb/GroupRepository';
 import { AdviceRepository, TokenBlacklistRepository } from '../infrastructure/dynamodb/AdviceRepository';
+import { UsageRepository } from '../infrastructure/dynamodb/UsageRepository';
 import { BadgeService } from '../domain/badge/BadgeService';
 
 const userRepo     = new UserRepository();
@@ -14,10 +15,11 @@ const avatarRepo   = new AvatarRepository();
 const badgeRepo    = new BadgeRepository();
 const groupRepo    = new GroupRepository();
 const adviceRepo   = new AdviceRepository();
+const usageRepo    = new UsageRepository();
 const blacklist    = new TokenBlacklistRepository();
 const badgeSvc     = new BadgeService(badgeRepo);
 
 export const deps = {
   userRepo, bodyLogRepo, mealRepo, avatarRepo,
-  badgeRepo, groupRepo, adviceRepo, blacklist, badgeSvc,
+  badgeRepo, groupRepo, adviceRepo, usageRepo, blacklist, badgeSvc,
 };

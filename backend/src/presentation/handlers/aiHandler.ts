@@ -8,6 +8,7 @@ const aiDeps = {
   bodyLogRepo: deps.bodyLogRepo,
   mealRepo: deps.mealRepo,
   adviceRepo: deps.adviceRepo,
+  usageRepo: deps.usageRepo,
 };
 
 export const handler = async (event: LambdaEvent) => {

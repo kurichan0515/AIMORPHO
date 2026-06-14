@@ -9,7 +9,7 @@ import { getDefaultAvatars, DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatar
 const MAX_GENERATES = 2;
 
 export default function AvatarSetupScreen() {
-  const { avatarImages, bodyState, regenerateCount, gender, useDefault, setAvatarImages } = useAvatarStore();
+  const { avatarImages, bodyState, regenerateCount, gender, setAvatarImages } = useAvatarStore();
 
   const mutation = useMutation({
     mutationFn: (uri: string) => generateAvatar(uri),
