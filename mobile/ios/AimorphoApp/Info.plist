@@ -32,6 +32,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>食事や体型の写真を撮影するために使用します</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>食事や体型の写真を選択するために使用します</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>UILaunchStoryboardName</key>
