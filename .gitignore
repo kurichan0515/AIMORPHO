@@ -63,3 +63,9 @@ mobile/ios/Pods/
 mobile/ios/build/
 mobile/android/build/
 mobile/android/app/build/
+mobile/android/local.properties
+mobile/android/app/.cxx/
+mobile/ios/**/xcuserdata/
+*.xcuserstate
+*.jsbundle
+.metro-health-check*
