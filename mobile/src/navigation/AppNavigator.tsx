@@ -1,13 +1,12 @@
 import React from 'react';
-import { Text, View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
+import { HomeIcon, RecordIcon, BadgeIcon, GroupIcon, SettingsIcon } from '../components/ui/icons';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuthStore } from '../store/useAuthStore';
 import HomeScreen from '../screens/HomeScreen';
-import WeightLogScreen from '../screens/WeightLogScreen';
-import MealLogScreen from '../screens/MealLogScreen';
-import ExerciseLogScreen from '../screens/ExerciseLogScreen';
+import LogScreen from '../screens/LogScreen';
 import AvatarSetupScreen from '../screens/AvatarSetupScreen';
 import BadgesScreen from '../screens/BadgesScreen';
 import GroupScreen from '../screens/GroupScreen';
@@ -20,36 +19,28 @@ import OnboardingAvatarScreen from '../screens/OnboardingAvatarScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-const LogStack = createNativeStackNavigator();
 const OnboardingStack = createNativeStackNavigator();
 
-function LogStackNavigator() {
-  return (
-    <LogStack.Navigator>
-      <LogStack.Screen name="WeightLog"   component={WeightLogScreen}   options={{ title: '体重' }} />
-      <LogStack.Screen name="MealLog"     component={MealLogScreen}     options={{ title: '食事' }} />
-      <LogStack.Screen name="ExerciseLog" component={ExerciseLogScreen} options={{ title: '運動' }} />
-    </LogStack.Navigator>
-  );
-}
-
-const TAB_ICONS: Record<string, string> = {
-  ホーム: '🏠', 記録: '📊', アバター: '🧑', グループ: '👥', プロフィール: '⚙️',
+const TAB_ICONS: Record<string, (props: { color: string; size?: number }) => React.JSX.Element> = {
+  ホーム: HomeIcon, 記録: RecordIcon, バッジ: BadgeIcon, グループ: GroupIcon, プロフィール: SettingsIcon,
 };
 
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: () => <Text style={{ fontSize: 20 }}>{TAB_ICONS[route.name] || '●'}</Text>,
+        tabBarIcon: ({ color, size }) => {
+          const Icon = TAB_ICONS[route.name];
+          return Icon ? <Icon color={color} size={size} /> : null;
+        },
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: '#999',
         headerShown: false,
       })}
     >
       <Tab.Screen name="ホーム"       component={HomeScreen} />
-      <Tab.Screen name="記録"         component={LogStackNavigator} />
-      <Tab.Screen name="アバター"     component={AvatarSetupScreen} />
+      <Tab.Screen name="記録"         component={LogScreen} />
+      <Tab.Screen name="バッジ"       component={BadgesScreen} />
       <Tab.Screen name="グループ"     component={GroupScreen} />
       <Tab.Screen name="プロフィール" component={ProfileScreen} />
     </Tab.Navigator>
@@ -84,8 +75,8 @@ export default function AppNavigator() {
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         ) : (
           <>
-            <Stack.Screen name="Main"     component={MainTabs} />
-            <Stack.Screen name="Badges"   component={BadgesScreen}  options={{ headerShown: true, title: 'バッジ一覧' }} />
+            <Stack.Screen name="Main"       component={MainTabs} />
+            <Stack.Screen name="AvatarSetup" component={AvatarSetupScreen} options={{ headerShown: true, title: 'アバター設定' }} />
             <Stack.Screen name="Login"    component={LoginScreen}   options={{ headerShown: true, title: '既存アカウントでログイン' }} />
             <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: 'アカウント登録' }} />
           </>

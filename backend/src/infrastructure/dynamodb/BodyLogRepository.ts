@@ -13,6 +13,7 @@ export class BodyLogRepository implements IBodyLogRepository {
         PK: `USER#${log.userId}`,
         SK: `WEIGHT#${log.recordedAt}`,
         weightKg: log.weightKg,
+        ...(log.bodyFatPct !== undefined ? { bodyFatPct: log.bodyFatPct } : {}),
         recordedAt: log.recordedAt,
       },
     }));
@@ -26,7 +27,7 @@ export class BodyLogRepository implements IBodyLogRepository {
       ScanIndexForward: false,
       Limit: limit,
     }));
-    return (r.Items ?? []).map(i => ({ userId, weightKg: i.weightKg, recordedAt: i.recordedAt }));
+    return (r.Items ?? []).map(i => ({ userId, weightKg: i.weightKg, bodyFatPct: i.bodyFatPct, recordedAt: i.recordedAt }));
   }
 
   async saveExercise(log: ExerciseLog): Promise<void> {

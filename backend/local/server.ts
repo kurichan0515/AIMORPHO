@@ -60,6 +60,7 @@ app.post('/logs/weight',          auth, wrap(fnLog as Parameters<typeof wrap>[0]
 app.get ('/logs/weight',          auth, wrap(fnLog as Parameters<typeof wrap>[0]));
 app.get ('/logs/meal/upload-url', auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
 app.post('/logs/meal/manual',     auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
+app.post('/logs/meal/confirm',    auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
 app.post('/logs/meal',            auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
 app.get ('/logs/meal',            auth, wrap(fnMeal as Parameters<typeof wrap>[0]));
 app.post('/logs/exercise',        auth, wrap(fnLog as Parameters<typeof wrap>[0]));

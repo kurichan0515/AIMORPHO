@@ -136,6 +136,10 @@ export default function ProfileScreen() {
         <Text style={styles.saveBtnText}>プロフィールを保存</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.avatarSettingBtn} onPress={() => navigation.navigate('AvatarSetup')}>
+        <Text style={styles.avatarSettingBtnText}>アバター設定</Text>
+      </TouchableOpacity>
+
       {/* 目標 */}
       <Text style={styles.sectionTitle}>目標設定</Text>
       <TextInput style={styles.input} placeholder="目標体重 (kg)" value={goalForm.targetWeight} onChangeText={v => setGoalForm(g => ({ ...g, targetWeight: v }))} keyboardType="decimal-pad" />
@@ -224,6 +228,8 @@ const styles = StyleSheet.create({
   toneChipTextActive: { color: '#FFF' },
   saveBtn:            { backgroundColor: '#007AFF', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8, marginBottom: 4 },
   saveBtnText:        { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+  avatarSettingBtn:      { borderWidth: 1, borderColor: '#007AFF', borderRadius: 10, padding: 13, alignItems: 'center', marginBottom: 4 },
+  avatarSettingBtnText:  { color: '#007AFF', fontWeight: '600', fontSize: 14 },
   modeBtn:            { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#EEE', alignItems: 'center' },
   modeBtnActive:      { backgroundColor: '#007AFF' },
   modeBtnText:        { fontWeight: 'bold', color: '#555' },

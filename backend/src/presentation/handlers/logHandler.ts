@@ -20,9 +20,9 @@ export const handler = async (event: LambdaEvent) => {
 
   try {
     if (path === '/logs/weight'   && httpMethod === 'POST') {
-      const { weightKg } = body as { weightKg?: number };
+      const { weightKg, bodyFatPct } = body as { weightKg?: number; bodyFatPct?: number };
       if (!weightKg) return error('weightKg required');
-      return toResponse(await BodyLogUseCases.recordWeight(logDeps, userId, weightKg));
+      return toResponse(await BodyLogUseCases.recordWeight(logDeps, userId, weightKg, bodyFatPct));
     }
     if (path === '/logs/weight'   && httpMethod === 'GET') {
       return toResponse(await BodyLogUseCases.getWeightHistory(logDeps, userId, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));

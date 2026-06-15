@@ -18,9 +18,9 @@ type Deps = {
   badgeSvc: BadgeService;
 };
 
-export const recordWeight = async (deps: Deps, userId: UserId, weightKg: number) => {
+export const recordWeight = async (deps: Deps, userId: UserId, weightKg: number, bodyFatPct?: number) => {
   const now = new Date().toISOString();
-  const log: WeightLog = { userId, weightKg, recordedAt: now };
+  const log: WeightLog = { userId, weightKg, bodyFatPct, recordedAt: now };
   await deps.bodyLogRepo.saveWeight(log);
 
   const currentStreak = await deps.userRepo.getStreak(userId) ?? emptyStreak(userId);
@@ -35,7 +35,7 @@ export const recordWeight = async (deps: Deps, userId: UserId, weightKg: number)
   const streakBadges = await deps.badgeSvc.checkStreakBadges(userId, newStreak.currentDays);
   newBadges.push(...streakBadges);
 
-  return { data: { weightKg, recordedAt: now, newBadges }, statusCode: 201 } as const;
+  return { data: { weightKg, bodyFatPct, recordedAt: now, newBadges }, statusCode: 201 } as const;
 };
 
 export const getWeightHistory = async (deps: Deps, userId: UserId, from: string, to: string, limit: number) => {

@@ -1,7 +1,7 @@
 import api from './client';
 
-export const recordWeight = (weightKg: number) =>
-  api.post('/logs/weight', { weightKg }).then(r => r.data);
+export const recordWeight = (weightKg: number, bodyFatPct?: number) =>
+  api.post('/logs/weight', { weightKg, bodyFatPct }).then(r => r.data);
 
 export const getWeightHistory = (params?: { from?: string; to?: string; limit?: number }) =>
   api.get('/logs/weight', { params }).then(r => r.data);

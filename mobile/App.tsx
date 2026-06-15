@@ -16,8 +16,12 @@ export default function App() {
   const init = useAuthStore(s => s.init);
   useEffect(() => {
     init();
-    setupNotificationHandlers();
-    checkInitialNotification();
+    try {
+      setupNotificationHandlers();
+      checkInitialNotification();
+    } catch (e) {
+      console.warn('Firebase notifications unavailable:', e);
+    }
   }, []);
 
   return (
