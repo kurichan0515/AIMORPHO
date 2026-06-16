@@ -69,6 +69,17 @@ export class UserRepository implements IUserRepository {
     }));
   }
 
+  async deleteAccount(userId: UserId): Promise<void> {
+    const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+    await db.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'PROFILE' },
+      UpdateExpression: 'SET deleted = :true, deletedAt = :now, #ttl = :ttl',
+      ExpressionAttributeNames: { '#ttl': 'ttl' },
+      ExpressionAttributeValues: { ':true': true, ':now': new Date().toISOString(), ':ttl': ttl },
+    }));
+  }
+
   async upgradeToRegistered(userId: UserId, email: string, passwordHash: string): Promise<void> {
     await db.send(new UpdateCommand({
       TableName: TABLE_NAME,
@@ -165,6 +176,8 @@ export class UserRepository implements IUserRepository {
       timezone: (item.timezone as string) ?? 'Asia/Tokyo',
       createdAt: item.createdAt as string,
       subscriptionTier: (item.subscriptionTier as User['subscriptionTier']) ?? 'free',
+      deleted: item.deleted as boolean | undefined,
+      deletedAt: item.deletedAt as string | undefined,
     };
   }
 }

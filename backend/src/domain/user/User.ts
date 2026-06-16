@@ -19,6 +19,8 @@ export type User = {
   createdAt: DateString;
   fcmToken?: string;
   subscriptionTier?: 'free' | 'premium';
+  deleted?: boolean;
+  deletedAt?: DateString;
 };
 
 export type UserProfile = Omit<User, 'passwordHash'>;

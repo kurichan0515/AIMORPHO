@@ -10,6 +10,7 @@ import { handler as fnAvatar } from '../functions/fn-avatar/index';
 import { handler as fnSocial } from '../functions/fn-social/index';
 import { handler as fnAi }     from '../functions/fn-ai/index';
 import { handler as fnAdmin }  from '../src/presentation/handlers/adminHandler';
+import { handler as fnLegal }  from '../src/presentation/handlers/legalHandler';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -77,8 +78,16 @@ app.get   ('/groups/:group_id',      auth, wrap(fnSocial as Parameters<typeof wr
 app.get   ('/groups/:group_id/feed', auth, wrap(fnSocial as Parameters<typeof wrap>[0]));
 app.delete('/groups/:group_id/leave',auth, wrap(fnSocial as Parameters<typeof wrap>[0]));
 
-app.post('/admin/notifications/send', wrap(fnAdmin as Parameters<typeof wrap>[0]));
-app.get ('/admin/users',              wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.delete('/users/me', auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+
+app.post('/admin/notifications/send',  wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/users',               wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/legal',               wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/legal/upload-url',    wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.post('/admin/legal/activate',      wrap(fnAdmin as Parameters<typeof wrap>[0]));
+
+app.get('/legal/terms',   wrap(fnLegal as Parameters<typeof wrap>[0]));
+app.get('/legal/privacy', wrap(fnLegal as Parameters<typeof wrap>[0]));
 
 app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

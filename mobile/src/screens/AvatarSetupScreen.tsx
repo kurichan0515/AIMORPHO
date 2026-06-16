@@ -5,11 +5,13 @@ import { useMutation } from '@tanstack/react-query';
 import { generateAvatar } from '../api/avatar';
 import { useAvatarStore } from '../store/useAvatarStore';
 import { getDefaultAvatars, DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
+import AvatarConsentModal from '../components/AvatarConsentModal';
 
 const MAX_GENERATES = 2;
 
 export default function AvatarSetupScreen() {
   const { avatarImages, bodyState, regenerateCount, gender, setAvatarImages } = useAvatarStore();
+  const [consentVisible, setConsentVisible] = React.useState(false);
 
   const mutation = useMutation({
     mutationFn: (uri: string) => generateAvatar(uri),
@@ -33,7 +35,7 @@ export default function AvatarSetupScreen() {
     },
   });
 
-  const pickAndGenerate = async () => {
+  const pickAndGenerate = () => {
     if (regenerateCount >= MAX_GENERATES) {
       Alert.alert(
         '生成上限に達しました',
@@ -45,6 +47,11 @@ export default function AvatarSetupScreen() {
       );
       return;
     }
+    setConsentVisible(true);
+  };
+
+  const handleConsentAgree = async () => {
+    setConsentVisible(false);
     const res = await launchImageLibrary({ mediaType: 'photo', quality: 0.9 });
     const uri = res.assets?.[0]?.uri;
     if (!uri) return;
@@ -120,9 +127,12 @@ export default function AvatarSetupScreen() {
               <Text style={styles.generateBtnText}>  AI生成中... (最大90秒)</Text>
             </View>
           ) : (
-            <Text style={styles.generateBtnText}>
-              📸 顔写真で{hasGenerated ? '再' : ''}生成（残り{remaining}回）
-            </Text>
+            <View>
+              <Text style={styles.generateBtnText}>
+                📸 顔写真で{hasGenerated ? '再' : ''}生成（残り{remaining}回）
+              </Text>
+              <Text style={styles.generateBtnSub}>写真はGemini AIで処理・生成後に削除されます</Text>
+            </View>
           )}
         </TouchableOpacity>
       ) : (
@@ -133,6 +143,12 @@ export default function AvatarSetupScreen() {
           <Text style={styles.upgradeBtnText}>✨ プレミアムで無制限生成</Text>
         </TouchableOpacity>
       )}
+
+      <AvatarConsentModal
+        visible={consentVisible}
+        onAgree={handleConsentAgree}
+        onCancel={() => setConsentVisible(false)}
+      />
     </ScrollView>
   );
 }
@@ -159,6 +175,7 @@ const styles = StyleSheet.create({
   emptyText:           { color: '#888', fontSize: 14 },
   generateBtn:         { backgroundColor: '#007AFF', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },
   generateBtnText:     { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+  generateBtnSub:      { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2, textAlign: 'center' },
   loadingRow:          { flexDirection: 'row', alignItems: 'center' },
   btnDisabled:         { opacity: 0.6 },
   upgradeBtn:          { backgroundColor: '#FF9500', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },

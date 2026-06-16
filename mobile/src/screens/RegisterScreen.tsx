@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/useAuthStore';
+import { BASE_URL as API_BASE } from '../api/client';
 
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
@@ -40,6 +41,13 @@ export default function RegisterScreen() {
         </Text>
         <TextInput style={styles.input} placeholder="メールアドレス" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
         <TextInput style={styles.input} placeholder="パスワード（8文字以上）" value={password} onChangeText={setPassword} secureTextEntry />
+        <Text style={styles.terms}>
+          登録すると
+          <Text style={styles.termsLink} onPress={() => Linking.openURL(`${API_BASE}/legal/terms`)}>利用規約</Text>
+          および
+          <Text style={styles.termsLink} onPress={() => Linking.openURL(`${API_BASE}/legal/privacy`)}>プライバシーポリシー</Text>
+          に同意したものとみなされます。
+        </Text>
         <TouchableOpacity style={styles.btn} onPress={submit} disabled={loading}>
           <Text style={styles.btnText}>{loading ? '登録中...' : 'アカウントを登録する'}</Text>
         </TouchableOpacity>
@@ -56,6 +64,8 @@ const styles = StyleSheet.create({
   title:      { fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
   subtitle:   { fontSize: 13, color: '#666', marginBottom: 24, lineHeight: 20 },
   input:      { borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 12 },
+  terms:      { fontSize: 12, color: '#888', lineHeight: 18, marginBottom: 8 },
+  termsLink:  { color: '#007AFF', textDecorationLine: 'underline' },
   btn:        { backgroundColor: '#007AFF', borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 8 },
   btnText:    { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   link:       { textAlign: 'center', marginTop: 16, color: '#007AFF' },

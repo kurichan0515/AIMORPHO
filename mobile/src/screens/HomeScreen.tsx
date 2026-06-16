@@ -267,6 +267,10 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </>
         )}
+
+        <Text style={styles.aiDisclaimer}>
+          ※ 本アドバイスはAIによる参考情報です。医療・診断行為ではありません。
+        </Text>
       </View>
 
       {/* 食事提案モーダル */}
@@ -382,6 +386,7 @@ const styles = StyleSheet.create({
   geminiLabelRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
   geminiLabel:            { fontSize: 11, fontWeight: '600', color: colors.neon.blue },
   adviceGreeting:         { fontSize: 15, fontWeight: '700', color: colors.text.primary, marginBottom: 14 },
+  aiDisclaimer:           { fontSize: 10, color: colors.text.secondary, marginTop: 12, lineHeight: 14 },
 
   tabRow:                 { flexDirection: 'row', gap: 8, marginBottom: 14 },
   tab:                    { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1 },

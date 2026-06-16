@@ -26,6 +26,17 @@ export const putObject = async (key: string, body: Buffer, contentType: string):
   await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body, ContentType: contentType }));
 };
 
+export const getLegalUploadUrl = async (key: string): Promise<string> =>
+  getSignedUrl(s3, new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: 'text/html; charset=utf-8' }), { expiresIn: 600 });
+
+export const getObjectText = async (key: string): Promise<string> => {
+  const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+  const chunks: Buffer[] = [];
+  if (!obj.Body) throw new Error(`S3 key not found: ${key}`);
+  for await (const chunk of obj.Body as AsyncIterable<Buffer>) chunks.push(chunk);
+  return Buffer.concat(chunks).toString('utf-8');
+};
+
 export const publicUrl = (key: string): string =>
   process.env.S3_ENDPOINT
     ? `${process.env.S3_ENDPOINT}/${BUCKET}/${key}`

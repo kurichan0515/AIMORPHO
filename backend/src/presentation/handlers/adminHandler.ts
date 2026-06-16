@@ -1,6 +1,10 @@
 import { LambdaEvent, error, parseBody, toResponse } from '../http';
 import { deps } from '../container';
 import { sendPushNotification } from '../../infrastructure/fcm/FcmService';
+import { LegalRepository, LegalFile } from '../../infrastructure/dynamodb/LegalRepository';
+import { getLegalUploadUrl } from '../../infrastructure/s3/S3Client';
+
+const legalRepo = new LegalRepository();
 
 const ADMIN_KEY = process.env.ADMIN_API_KEY ?? '';
 
@@ -43,6 +47,28 @@ export const handler = async (event: LambdaEvent) => {
     if (path === '/admin/users' && httpMethod === 'GET') {
       const tokens = await deps.userRepo.listAllFcmTokens();
       return toResponse({ data: { count: tokens.length, users: tokens.map(t => ({ userId: t.userId, hasFcm: !!t.fcmToken })) }, statusCode: 200 });
+    }
+
+    // --- legal ---
+    if (path === '/admin/legal' && httpMethod === 'GET') {
+      const [terms, privacy] = await Promise.all([legalRepo.get('terms'), legalRepo.get('privacy')]);
+      return toResponse({ data: { terms, privacy }, statusCode: 200 });
+    }
+
+    if (path === '/admin/legal/upload-url' && httpMethod === 'GET') {
+      const file = event.queryStringParameters?.file as LegalFile | undefined;
+      if (file !== 'terms' && file !== 'privacy') return error('file must be terms or privacy');
+      const key = `legal/${file}/${Date.now()}.html`;
+      const uploadUrl = await getLegalUploadUrl(key);
+      return toResponse({ data: { uploadUrl, key }, statusCode: 200 });
+    }
+
+    if (path === '/admin/legal/activate' && httpMethod === 'POST') {
+      const { file, key } = body as { file: LegalFile; key: string };
+      if (file !== 'terms' && file !== 'privacy') return error('file must be terms or privacy');
+      if (!key) return error('key required');
+      await legalRepo.activate(file, key);
+      return toResponse({ data: { ok: true }, statusCode: 200 });
     }
 
     return error('Not found', 404);

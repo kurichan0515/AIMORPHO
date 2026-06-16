@@ -3,10 +3,12 @@ import { UpdateProfileInput } from '../../domain/user/User';
 import { Goal } from '../../domain/user/Goal';
 import { emptyStreak } from '../../domain/user/Streak';
 import { IBadgeRepository } from '../../domain/badge/IBadgeRepository';
+import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { UserId, GoalMode } from '../../domain/shared/types';
 
 type UserDeps = { userRepo: IUserRepository };
 type BadgeDeps = { badgeRepo: IBadgeRepository };
+type DeleteAccountDeps = { userRepo: IUserRepository; avatarRepo: IAvatarRepository };
 
 export const getProfile = async ({ userRepo }: UserDeps, userId: UserId) => {
   const user = await userRepo.findById(userId);
@@ -51,4 +53,10 @@ export const saveFcmToken = async ({ userRepo }: UserDeps, userId: UserId, fcmTo
 export const getBadges = async ({ badgeRepo }: BadgeDeps, userId: UserId) => {
   const badges = await badgeRepo.listByUser(userId);
   return { data: badges, statusCode: 200 } as const;
+};
+
+export const deleteAccount = async ({ userRepo, avatarRepo }: DeleteAccountDeps, userId: UserId) => {
+  await avatarRepo.delete(userId);
+  await userRepo.deleteAccount(userId);
+  return { data: { message: 'account deleted' }, statusCode: 200 } as const;
 };

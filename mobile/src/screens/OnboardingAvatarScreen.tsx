@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useAvatarStore } from '../store/useAvatarStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { Gender, getDefaultAvatars, DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
+import AvatarConsentModal from '../components/AvatarConsentModal';
 
 type GenderOption = { value: Gender; label: string; emoji: string };
 const GENDER_OPTIONS: GenderOption[] = [
@@ -25,6 +26,7 @@ export default function OnboardingAvatarScreen() {
   const resolvedGender = storedGender ?? (onboardingGender === 'other' ? null : onboardingGender as Gender | null);
   const [localGender, setLocalGender] = useState<Gender | null>(resolvedGender);
   const [generated, setGenerated] = useState(false);
+  const [consentVisible, setConsentVisible] = useState(false);
 
   const mutation = useMutation({
     mutationFn: (uri: string) => generateAvatar(uri),
@@ -41,7 +43,10 @@ export default function OnboardingAvatarScreen() {
     },
   });
 
-  const pickAndGenerate = async () => {
+  const pickAndGenerate = () => setConsentVisible(true);
+
+  const handleConsentAgree = async () => {
+    setConsentVisible(false);
     const res = await launchImageLibrary({ mediaType: 'photo', quality: 0.9 });
     const uri = res.assets?.[0]?.uri;
     if (!uri) return;
@@ -149,7 +154,7 @@ export default function OnboardingAvatarScreen() {
                 <Text style={styles.aiBtnIcon}>📸</Text>
                 <View>
                   <Text style={styles.aiBtnText}>顔写真でAIアバター生成</Text>
-                  <Text style={styles.aiBtnSub}>無料2回まで・アニメ風に変換</Text>
+                  <Text style={styles.aiBtnSub}>写真はGemini AIで処理・生成後に削除されます</Text>
                 </View>
               </>
             )}
@@ -179,6 +184,12 @@ export default function OnboardingAvatarScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <AvatarConsentModal
+        visible={consentVisible}
+        onAgree={handleConsentAgree}
+        onCancel={() => setConsentVisible(false)}
+      />
     </ScrollView>
   );
 }

@@ -192,6 +192,10 @@ export default function MealLogScreen() {
               </TouchableOpacity>
             </View>
           )}
+
+          <Text style={styles.mealDisclaimer}>
+            ※ カロリー・栄養値はAI推定値です。正確な値は食品表示をご確認ください。
+          </Text>
         </View>
       )}
 
@@ -278,6 +282,7 @@ const styles = StyleSheet.create({
   macroLabel:           { fontSize: 11, color: '#666' },
   macroValue:           { fontSize: 15, fontWeight: 'bold', marginTop: 2 },
   confidenceWarning:    { marginTop: 8, color: '#FF9500', fontSize: 12 },
+  mealDisclaimer:       { marginTop: 12, color: '#999', fontSize: 11, lineHeight: 16 },
   resultActions:        { marginTop: 14, gap: 8 },
   kcalEditRow:          { marginTop: 14, gap: 8 },
   confirmBtn:           { backgroundColor: '#007AFF', borderRadius: 10, padding: 14, alignItems: 'center' },

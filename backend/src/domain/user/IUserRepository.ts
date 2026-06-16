@@ -20,4 +20,5 @@ export interface IUserRepository {
   upgradeToRegistered(userId: UserId, email: string, passwordHash: string): Promise<void>;
   saveFcmToken(userId: UserId, fcmToken: string): Promise<void>;
   listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]>;
+  deleteAccount(userId: UserId): Promise<void>;
 }

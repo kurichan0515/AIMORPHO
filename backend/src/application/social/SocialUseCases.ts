@@ -56,16 +56,18 @@ export const getGroupFeed = async (deps: Deps, userId: UserId, groupId: GroupId)
         deps.userRepo.getStreak(m.userId),
         deps.badgeRepo.listByUser(m.userId),
       ]);
+      if (!user || user.deleted) return null;
       return {
         userId: m.userId,
-        displayName: user?.displayName ?? '',
+        displayName: user.displayName ?? '',
         currentDays: streak?.currentDays ?? 0,
         badgeCount: badges.length,
       };
     })
   );
 
-  return { data: feedItems.sort((a, b) => b.currentDays - a.currentDays), statusCode: 200 } as const;
+  const visibleItems = feedItems.filter((item): item is NonNullable<typeof item> => item !== null);
+  return { data: visibleItems.sort((a, b) => b.currentDays - a.currentDays), statusCode: 200 } as const;
 };
 
 export const leaveGroup = async (deps: Deps, userId: UserId, groupId: GroupId) => {

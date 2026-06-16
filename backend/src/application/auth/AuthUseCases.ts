@@ -15,6 +15,7 @@ export const anonymousLogin = async (
   { userId }: { userId: string }
 ) => {
   let user = await userRepo.findById(userId);
+  if (user?.deleted) return { error: 'Account deleted', statusCode: 401 } as const;
   if (!user) {
     const now = new Date().toISOString();
     user = {
@@ -85,12 +86,13 @@ export const login = async (
   if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
     return { error: 'Invalid credentials', statusCode: 401 } as const;
   }
+  if (user.deleted) return { error: 'Invalid credentials', statusCode: 401 } as const;
   const tokens = await signTokens(user.userId);
   return { data: { ...tokens, userId: user.userId, isAnonymous: false }, statusCode: 200 } as const;
 };
 
 export const refresh = async (
-  { blacklist }: AuthDeps,
+  { userRepo, blacklist }: AuthDeps,
   { refreshToken }: { refreshToken: string }
 ) => {
   const payload = await verifyToken(refreshToken).catch(() => null);
@@ -99,6 +101,9 @@ export const refresh = async (
   if (payload.jti && await blacklist.isBlacklisted(payload.jti)) {
     return { error: 'Token revoked', statusCode: 401 } as const;
   }
+
+  const user = await userRepo.findById(payload.sub);
+  if (user?.deleted) return { error: 'Account deleted', statusCode: 401 } as const;
 
   const { accessToken } = await signTokens(payload.sub);
   return { data: { accessToken }, statusCode: 200 } as const;

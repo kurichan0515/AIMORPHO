@@ -5,6 +5,7 @@ import { UpdateProfileInput } from '../../domain/user/User';
 import { GoalMode } from '../../domain/shared/types';
 
 const userDeps = { userRepo: deps.userRepo };
+const deleteAccountDeps = { userRepo: deps.userRepo, avatarRepo: deps.avatarRepo };
 const badgeDeps = { badgeRepo: deps.badgeRepo };
 
 const ALLOWED_PROFILE_FIELDS: Array<keyof UpdateProfileInput> = [
@@ -38,6 +39,7 @@ export const handler = async (event: LambdaEvent) => {
       if (!fcmToken) return error('fcmToken required');
       return toResponse(await UserUseCases.saveFcmToken(userDeps, userId, fcmToken));
     }
+    if (path === '/users/me'        && httpMethod === 'DELETE') return toResponse(await UserUseCases.deleteAccount(deleteAccountDeps, userId));
     if (path === '/users/me/streak' && httpMethod === 'GET')  return toResponse(await UserUseCases.getStreak(userDeps, userId));
     if (path === '/users/me/badges' && httpMethod === 'GET')  return toResponse(await UserUseCases.getBadges(badgeDeps, userId));
     return error('Not found', 404);

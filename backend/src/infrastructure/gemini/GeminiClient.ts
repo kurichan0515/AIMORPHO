@@ -99,6 +99,13 @@ export type DailyAdviceResult = {
 
 export const MUSCLE_GROUPS = ['胸', '背中', '肩', '腕', '腹', '脚', '臀部', '全身'] as const;
 
+const SAFETY_SUFFIX = `
+# 出力制約（必須）
+- 疾病の治療・予防・診断には一切言及しない
+- 「〇〇病に効果的」「病気を防ぐ」等の表現を使わない
+- 医師への相談が必要な内容は「医師へご相談ください」を含める
+- あくまで一般的な健康管理の参考情報として提供する`;
+
 const GOAL_MODE_LABEL: Record<string, string> = {
   diet:     '体重を減らす（減量）',
   bulk:     '体重・筋肉を増やす（増量）',
@@ -119,7 +126,7 @@ export const generateDailyAdvice = async (ctx: DailyAdviceContext): Promise<Dail
     ? (ctx.recentWeights[0] - ctx.recentWeights[ctx.recentWeights.length - 1]).toFixed(1) : '0';
 
   const gymLabel = ctx.hasGym === true ? 'ジム通い: あり（ジムのウェイトトレーニングメニューを提案可）' : ctx.hasGym === false ? 'ジム通い: なし（自宅・屋外メニューのみ提案）' : 'ジム通い: 不明';
-  const prompt = `# ユーザー情報\n- 年齢: ${ctx.age}歳 / 身長: ${ctx.heightCm}cm\n- 目標: ${goalLabel}\n- 現在体重: ${ctx.currentWeight}kg / 目標体重: ${ctx.targetWeight}kg（${diffLabel}）\n- 7日間体重推移: ${ctx.recentWeights.join('→')}kg（${Number(trend) > 0 ? '+' : ''}${trend}kg）\n- 活動レベル: ${ctx.lifestyle}\n- ${gymLabel}\n- ストリーク: ${ctx.currentDays}日\n- 体型変化進捗: ${ctx.bodyState}/4\n- 直近3日カロリー: ${ctx.recentKcal.map(k => k + 'kcal').join(' / ')}\n- 直近3日運動: ${ctx.recentExercise.length ? ctx.recentExercise.join(', ') : 'なし'}\n\n# 指示\n${toneInstruction}\nユーザーの目標（${goalLabel}）に沿ったアドバイスを**JSONのみ**で返してください。ジム通いの有無に応じた運動提案をしてください。\n\n{"greeting":"今日の挨拶（1文）","meal_advice":"食事アドバイス（2文以内）","exercise_advice":"運動アドバイス（2文以内）"}`;
+  const prompt = `# ユーザー情報\n- 年齢: ${ctx.age}歳 / 身長: ${ctx.heightCm}cm\n- 目標: ${goalLabel}\n- 現在体重: ${ctx.currentWeight}kg / 目標体重: ${ctx.targetWeight}kg（${diffLabel}）\n- 7日間体重推移: ${ctx.recentWeights.join('→')}kg（${Number(trend) > 0 ? '+' : ''}${trend}kg）\n- 活動レベル: ${ctx.lifestyle}\n- ${gymLabel}\n- ストリーク: ${ctx.currentDays}日\n- 体型変化進捗: ${ctx.bodyState}/4\n- 直近3日カロリー: ${ctx.recentKcal.map(k => k + 'kcal').join(' / ')}\n- 直近3日運動: ${ctx.recentExercise.length ? ctx.recentExercise.join(', ') : 'なし'}\n\n# 指示\n${toneInstruction}\nユーザーの目標（${goalLabel}）に沿ったアドバイスを**JSONのみ**で返してください。ジム通いの有無に応じた運動提案をしてください。\n\n{"greeting":"今日の挨拶（1文）","meal_advice":"食事アドバイス（2文以内）","exercise_advice":"運動アドバイス（2文以内）"}\n${SAFETY_SUFFIX}`;
 
   const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
   const text = extractText(raw);

@@ -90,6 +90,16 @@ export default function ProfileScreen() {
 
   const f = (key: keyof typeof form, val: string | boolean) => setForm(prev => ({ ...prev, [key]: val }));
 
+  const handleDeleteAccount = async () => {
+    try {
+      await api.delete('/users/me');
+      qc.clear();
+      logout();
+    } catch {
+      Alert.alert('エラー', '削除に失敗しました。しばらく経ってから再度お試しください。');
+    }
+  };
+
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       {/* ストリーク */}
@@ -199,6 +209,21 @@ export default function ProfileScreen() {
           >
             <Text style={styles.logoutBtnText}>ログアウト</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteAccountBtn}
+            onPress={() =>
+              Alert.alert(
+                'アカウントを削除',
+                'アカウントを削除すると、すべての記録・アバターが失われます。\nこの操作は取り消せません。',
+                [
+                  { text: 'キャンセル', style: 'cancel' },
+                  { text: '削除する', style: 'destructive', onPress: handleDeleteAccount },
+                ]
+              )
+            }
+          >
+            <Text style={styles.deleteAccountBtnText}>アカウントを削除する</Text>
+          </TouchableOpacity>
         </View>
       )}
       <View style={{ height: 40 }} />
@@ -249,4 +274,6 @@ const styles = StyleSheet.create({
   accountEmail:              { fontSize: 14, color: '#333', marginBottom: 12 },
   logoutBtn:                 { padding: 13, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
   logoutBtnText:             { color: '#FF3B30', fontWeight: 'bold', fontSize: 14 },
+  deleteAccountBtn:          { marginTop: 12, padding: 14, alignItems: 'center' },
+  deleteAccountBtnText:      { color: '#999', fontSize: 13, textDecorationLine: 'underline' },
 });
