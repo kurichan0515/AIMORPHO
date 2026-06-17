@@ -6,6 +6,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createGroup, joinGroup, getGroup, getGroupFeed, leaveGroup } from '../api/social';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors } from '../theme/colors';
 
 export default function GroupScreen() {
   const [tab, setTab] = useState<'my' | 'create' | 'join'>('my');
@@ -13,7 +14,6 @@ export default function GroupScreen() {
   const [inviteCode, setInviteCode] = useState('');
   const qc = useQueryClient();
 
-  // 参加グループIDをローカル保存
   const [myGroupId, setMyGroupId] = useState<string | null>(null);
   React.useEffect(() => {
     AsyncStorage.getItem('myGroupId').then(id => { if (id) setMyGroupId(id); });
@@ -71,7 +71,6 @@ export default function GroupScreen() {
 
   return (
     <View style={styles.container}>
-      {/* タブ */}
       <View style={styles.tabs}>
         {(['my', 'create', 'join'] as const).map(t => (
           <TouchableOpacity key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
@@ -85,7 +84,7 @@ export default function GroupScreen() {
       {tab === 'create' && (
         <View style={styles.form}>
           <Text style={styles.formTitle}>グループ作成</Text>
-          <TextInput style={styles.input} placeholder="グループ名" value={groupName} onChangeText={setGroupName} />
+          <TextInput style={styles.input} placeholder="グループ名" placeholderTextColor={colors.text.muted} value={groupName} onChangeText={setGroupName} />
           <TouchableOpacity style={styles.submitBtn} onPress={() => createMutation.mutate()} disabled={!groupName || createMutation.isPending}>
             <Text style={styles.submitBtnText}>作成する</Text>
           </TouchableOpacity>
@@ -95,7 +94,7 @@ export default function GroupScreen() {
       {tab === 'join' && (
         <View style={styles.form}>
           <Text style={styles.formTitle}>招待コードで参加</Text>
-          <TextInput style={styles.input} placeholder="招待コード (6文字)" value={inviteCode} onChangeText={setInviteCode} autoCapitalize="characters" maxLength={6} />
+          <TextInput style={styles.input} placeholder="招待コード (6文字)" placeholderTextColor={colors.text.muted} value={inviteCode} onChangeText={setInviteCode} autoCapitalize="characters" maxLength={6} />
           <TouchableOpacity style={styles.submitBtn} onPress={() => joinMutation.mutate()} disabled={inviteCode.length !== 6 || joinMutation.isPending}>
             <Text style={styles.submitBtnText}>参加する</Text>
           </TouchableOpacity>
@@ -112,10 +111,9 @@ export default function GroupScreen() {
               </TouchableOpacity>
             </View>
           ) : groupLoading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} />
+            <ActivityIndicator style={{ marginTop: 40 }} color={colors.neon.blue} />
           ) : (
             <>
-              {/* グループ情報 */}
               <View style={styles.groupCard}>
                 <Text style={styles.groupName}>{group?.name}</Text>
                 <TouchableOpacity onPress={shareInvite} style={styles.inviteBtn}>
@@ -123,9 +121,8 @@ export default function GroupScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* フィード */}
               <Text style={styles.sectionTitle}>メンバーランキング</Text>
-              {feedLoading ? <ActivityIndicator /> : (feed || []).map((member: any, i: number) => (
+              {feedLoading ? <ActivityIndicator color={colors.neon.blue} /> : (feed || []).map((member: any, i: number) => (
                 <View key={member.userId} style={styles.memberRow}>
                   <Text style={styles.rank}>{i + 1}</Text>
                   <View style={styles.memberInfo}>
@@ -152,29 +149,29 @@ export default function GroupScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:      { flex: 1, backgroundColor: '#F8F9FA' },
-  tabs:           { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
-  tab:            { flex: 1, padding: 14, alignItems: 'center' },
-  tabActive:      { borderBottomWidth: 2, borderBottomColor: '#007AFF' },
-  tabText:        { fontSize: 14, color: '#888' },
-  tabTextActive:  { color: '#007AFF', fontWeight: 'bold' },
+  container:      { flex: 1, backgroundColor: colors.bg.primary },
+  tabs:           { flexDirection: 'row', backgroundColor: colors.bg.navBar, borderBottomWidth: 1, borderBottomColor: colors.border.subtle },
+  tab:            { flex: 1, padding: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive:      { borderBottomColor: colors.neon.blue },
+  tabText:        { fontSize: 14, color: colors.text.muted },
+  tabTextActive:  { color: colors.neon.blue, fontWeight: 'bold' },
   form:           { padding: 20 },
-  formTitle:      { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-  input:          { backgroundColor: '#FFF', borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 12, elevation: 1 },
-  submitBtn:      { backgroundColor: '#007AFF', borderRadius: 10, padding: 14, alignItems: 'center' },
-  submitBtnText:  { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+  formTitle:      { fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: colors.text.primary },
+  input:          { backgroundColor: colors.bg.card, borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 12, borderWidth: 1, borderColor: colors.border.subtle, color: colors.text.primary },
+  submitBtn:      { backgroundColor: colors.neon.blue, borderRadius: 10, padding: 14, alignItems: 'center' },
+  submitBtnText:  { color: colors.bg.primary, fontWeight: 'bold', fontSize: 15 },
   emptyState:     { alignItems: 'center', padding: 40, gap: 16 },
-  emptyText:      { color: '#888', fontSize: 15 },
-  groupCard:      { backgroundColor: '#007AFF', margin: 16, borderRadius: 16, padding: 20 },
-  groupName:      { fontSize: 22, fontWeight: 'bold', color: '#FFF', marginBottom: 10 },
-  inviteBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: 10 },
-  inviteBtnText:  { color: '#FFF', fontSize: 14, textAlign: 'center' },
-  sectionTitle:   { fontSize: 16, fontWeight: 'bold', marginHorizontal: 16, marginBottom: 8 },
-  memberRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', marginHorizontal: 16, marginBottom: 6, padding: 14, borderRadius: 10, elevation: 1 },
-  rank:           { fontSize: 20, fontWeight: 'bold', color: '#007AFF', width: 32 },
+  emptyText:      { color: colors.text.secondary, fontSize: 15 },
+  groupCard:      { backgroundColor: colors.bg.card, margin: 16, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.neon.blue },
+  groupName:      { fontSize: 22, fontWeight: 'bold', color: colors.text.primary, marginBottom: 10 },
+  inviteBtn:      { backgroundColor: 'rgba(47,200,255,0.15)', borderRadius: 8, padding: 10 },
+  inviteBtnText:  { color: colors.neon.blue, fontSize: 14, textAlign: 'center' },
+  sectionTitle:   { fontSize: 16, fontWeight: 'bold', marginHorizontal: 16, marginBottom: 8, color: colors.text.primary },
+  memberRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg.card, marginHorizontal: 16, marginBottom: 6, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border.subtle },
+  rank:           { fontSize: 20, fontWeight: 'bold', color: colors.neon.blue, width: 32 },
   memberInfo:     { flex: 1 },
-  memberName:     { fontSize: 15, fontWeight: '500' },
-  memberMeta:     { fontSize: 12, color: '#888', marginTop: 2 },
-  leaveBtn:       { margin: 16, marginTop: 24, padding: 14, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
-  leaveBtnText:   { color: '#FF3B30', fontWeight: 'bold' },
+  memberName:     { fontSize: 15, fontWeight: '500', color: colors.text.primary },
+  memberMeta:     { fontSize: 12, color: colors.text.secondary, marginTop: 2 },
+  leaveBtn:       { margin: 16, marginTop: 24, padding: 14, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.danger },
+  leaveBtnText:   { color: colors.danger, fontWeight: 'bold' },
 });

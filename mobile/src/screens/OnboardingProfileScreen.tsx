@@ -6,28 +6,35 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import api from '../api/client';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { colors } from '../theme/colors';
+import DrumPicker from '../components/ui/DrumPicker';
+
+const AGE_VALUES     = Array.from({ length: 71 },  (_, i) => i + 10);  // 10-80
+const HEIGHT_VALUES  = Array.from({ length: 81 },  (_, i) => i + 140); // 140-220
+const WEIGHT_VALUES  = Array.from({ length: 121 }, (_, i) => i + 30);  // 30-150
+const DECIMAL_VALUES = Array.from({ length: 10 },  (_, i) => i);        // 0-9
 
 type Gender = 'male' | 'female' | 'other';
 
-const GENDER_OPTIONS: { value: Gender; label: string; emoji: string }[] = [
-  { value: 'male',   label: '男性', emoji: '👨' },
-  { value: 'female', label: '女性', emoji: '👩' },
-  { value: 'other',  label: 'その他', emoji: '🧑' },
+const GENDER_OPTIONS: { value: Gender; label: string; sub: string }[] = [
+  { value: 'male',   label: '男性',   sub: 'Male' },
+  { value: 'female', label: '女性',   sub: 'Female' },
+  { value: 'other',  label: 'その他', sub: 'Other' },
 ];
 
-const LIFESTYLE_OPTIONS = [
-  { value: 'sedentary',   label: 'ほぼ運動しない',        emoji: '🛋️' },
-  { value: 'light',       label: '軽い運動（週1〜2）',     emoji: '🚶' },
-  { value: 'moderate',    label: '週3〜5回',               emoji: '🏃' },
-  { value: 'active',      label: '毎日運動',               emoji: '💪' },
-  { value: 'very_active', label: 'ハードトレーニング',     emoji: '🏋️' },
+const LIFESTYLE_OPTIONS: { value: string; label: string; intensity: number }[] = [
+  { value: 'sedentary',   label: 'ほぼ運動しない',    intensity: 1 },
+  { value: 'light',       label: '軽い運動（週1〜2）', intensity: 2 },
+  { value: 'moderate',    label: '週3〜5回',           intensity: 3 },
+  { value: 'active',      label: '毎日運動',           intensity: 4 },
+  { value: 'very_active', label: 'ハードトレーニング', intensity: 5 },
 ];
 
-const AI_TONE_OPTIONS = [
-  { value: 'friendly', label: 'フレンドリー', emoji: '😊' },
-  { value: 'strict',   label: '厳しめ',       emoji: '💪' },
-  { value: 'gentle',   label: 'やさしい',     emoji: '🌸' },
-  { value: 'cool',     label: 'クール',        emoji: '😎' },
+const AI_TONE_OPTIONS: { value: string; label: string; sub: string }[] = [
+  { value: 'friendly', label: 'フレンドリー', sub: 'Friendly' },
+  { value: 'strict',   label: '厳しめ',       sub: 'Strict'   },
+  { value: 'gentle',   label: 'やさしい',     sub: 'Gentle'   },
+  { value: 'cool',     label: 'クール',        sub: 'Cool'     },
 ];
 
 export default function OnboardingProfileScreen() {
@@ -36,9 +43,11 @@ export default function OnboardingProfileScreen() {
   const [form, setForm] = useState({
     displayName: '',
     gender: '' as Gender | '',
-    age: '',
-    heightCm: '',
-    weightKg: '',
+    age: '25',
+    heightCmInt: '165',
+    heightCmDec: '0',
+    weightKgInt: '60',
+    weightKgDec: '0',
     bodyFatPct: '',
     lifestyle: 'moderate',
     aiTone: 'friendly',
@@ -53,13 +62,13 @@ export default function OnboardingProfileScreen() {
       Alert.alert('入力必須', 'ニックネームを入力してください');
       return;
     }
-    if (!form.age || !form.heightCm || !form.weightKg) {
+    if (!form.age || !form.heightCmInt || !form.weightKgInt) {
       Alert.alert('入力必須', '年齢・身長・体重を入力してください');
       return;
     }
     const age = parseInt(form.age, 10);
-    const heightCm = parseFloat(form.heightCm);
-    const weightKg = parseFloat(form.weightKg);
+    const heightCm = parseFloat(`${form.heightCmInt}.${form.heightCmDec}`);
+    const weightKg = parseFloat(`${form.weightKgInt}.${form.weightKgDec}`);
     const bodyFatPct = form.bodyFatPct ? parseFloat(form.bodyFatPct) : undefined;
     if (isNaN(age) || isNaN(heightCm) || isNaN(weightKg)) {
       Alert.alert('入力エラー', '数値を正しく入力してください');
@@ -88,7 +97,7 @@ export default function OnboardingProfileScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg.primary }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.stepIndicator}>
           <View style={[styles.dot, styles.dotActive]} />
@@ -102,6 +111,7 @@ export default function OnboardingProfileScreen() {
         <TextInput
           style={styles.input}
           placeholder="例：たろう"
+          placeholderTextColor={colors.text.muted}
           value={form.displayName}
           onChangeText={v => f('displayName', v)}
         />
@@ -114,57 +124,85 @@ export default function OnboardingProfileScreen() {
               style={[styles.genderBtn, form.gender === o.value && styles.genderBtnActive]}
               onPress={() => f('gender', form.gender === o.value ? '' : o.value)}
             >
-              <Text style={styles.genderEmoji}>{o.emoji}</Text>
-              <Text style={[styles.genderText, form.gender === o.value && styles.genderTextActive]}>
-                {o.label}
-              </Text>
+              <Text style={[styles.genderText, form.gender === o.value && styles.genderTextActive]}>{o.label}</Text>
+              <Text style={[styles.genderSub,  form.gender === o.value && styles.genderSubActive]}>{o.sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={styles.row}>
-          <View style={[styles.inputWrapper, styles.half]}>
-            <TextInput
-              style={styles.inputInner}
-              placeholder="年齢"
-              value={form.age}
-              onChangeText={v => f('age', v)}
-              keyboardType="number-pad"
-            />
-            <Text style={styles.unit}>歳</Text>
+        <View style={styles.drumRow}>
+          {/* 年齢 */}
+          <DrumPicker
+            label="年齢"
+            unit="歳"
+            values={AGE_VALUES}
+            selectedValue={parseInt(form.age, 10) || 25}
+            onChange={val => f('age', String(val))}
+            width={64}
+          />
+
+          <View style={styles.drumDivider} />
+
+          {/* 身長（整数 + 小数） */}
+          <View style={styles.compoundPicker}>
+            <Text style={styles.compoundLabel}>身長</Text>
+            <View style={styles.compoundDrums}>
+              <DrumPicker
+                label="" unit=""
+                values={HEIGHT_VALUES}
+                selectedValue={parseInt(form.heightCmInt, 10) || 165}
+                onChange={val => f('heightCmInt', String(val))}
+                width={64}
+              />
+              <Text style={styles.decimalDot}>.</Text>
+              <DrumPicker
+                label="" unit=""
+                values={DECIMAL_VALUES}
+                selectedValue={parseInt(form.heightCmDec, 10) || 0}
+                onChange={val => f('heightCmDec', String(val))}
+                width={44}
+              />
+            </View>
+            <Text style={styles.compoundUnit}>cm</Text>
           </View>
-          <View style={[styles.inputWrapper, styles.half]}>
-            <TextInput
-              style={styles.inputInner}
-              placeholder="身長"
-              value={form.heightCm}
-              onChangeText={v => f('heightCm', v)}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.unit}>cm</Text>
+
+          <View style={styles.drumDivider} />
+
+          {/* 体重（整数 + 小数） */}
+          <View style={styles.compoundPicker}>
+            <Text style={styles.compoundLabel}>体重</Text>
+            <View style={styles.compoundDrums}>
+              <DrumPicker
+                label="" unit=""
+                values={WEIGHT_VALUES}
+                selectedValue={parseInt(form.weightKgInt, 10) || 60}
+                onChange={val => f('weightKgInt', String(val))}
+                width={64}
+              />
+              <Text style={styles.decimalDot}>.</Text>
+              <DrumPicker
+                label="" unit=""
+                values={DECIMAL_VALUES}
+                selectedValue={parseInt(form.weightKgDec, 10) || 0}
+                onChange={val => f('weightKgDec', String(val))}
+                width={44}
+              />
+            </View>
+            <Text style={styles.compoundUnit}>kg</Text>
           </View>
         </View>
-        <View style={styles.row}>
-          <View style={[styles.inputWrapper, styles.half]}>
-            <TextInput
-              style={styles.inputInner}
-              placeholder="体重"
-              value={form.weightKg}
-              onChangeText={v => f('weightKg', v)}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.unit}>kg</Text>
-          </View>
-          <View style={[styles.inputWrapper, styles.half]}>
-            <TextInput
-              style={styles.inputInner}
-              placeholder="体脂肪率（任意）"
-              value={form.bodyFatPct}
-              onChangeText={v => f('bodyFatPct', v)}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.unit}>%</Text>
-          </View>
+
+        <Text style={styles.label}>体脂肪率 <Text style={styles.optional}>（任意）</Text></Text>
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.inputInner}
+            placeholder="例: 20"
+            placeholderTextColor={colors.text.muted}
+            value={form.bodyFatPct}
+            onChangeText={v => f('bodyFatPct', v)}
+            keyboardType="decimal-pad"
+          />
+          <Text style={styles.unit}>%</Text>
         </View>
 
         <Text style={styles.label}>活動レベル <Text style={styles.required}>*</Text></Text>
@@ -174,7 +212,17 @@ export default function OnboardingProfileScreen() {
             style={[styles.option, form.lifestyle === o.value && styles.optionActive]}
             onPress={() => f('lifestyle', o.value)}
           >
-            <Text style={styles.optionEmoji}>{o.emoji}</Text>
+            <View style={styles.intensityBar}>
+              {[1,2,3,4,5].map(n => (
+                <View
+                  key={n}
+                  style={[
+                    styles.intensityDot,
+                    n <= o.intensity && (form.lifestyle === o.value ? styles.intensityDotOnActive : styles.intensityDotOn),
+                  ]}
+                />
+              ))}
+            </View>
             <Text style={[styles.optionText, form.lifestyle === o.value && styles.optionTextActive]}>
               {o.label}
             </Text>
@@ -189,10 +237,8 @@ export default function OnboardingProfileScreen() {
               style={[styles.toneChip, form.aiTone === o.value && styles.toneChipActive]}
               onPress={() => f('aiTone', o.value)}
             >
-              <Text style={styles.toneEmoji}>{o.emoji}</Text>
-              <Text style={[styles.toneText, form.aiTone === o.value && styles.toneTextActive]}>
-                {o.label}
-              </Text>
+              <Text style={[styles.toneText, form.aiTone === o.value && styles.toneTextActive]}>{o.label}</Text>
+              <Text style={[styles.toneSub,  form.aiTone === o.value && styles.toneSubActive]}>{o.sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -205,7 +251,8 @@ export default function OnboardingProfileScreen() {
           <Switch
             value={form.hasGym}
             onValueChange={v => setForm(p => ({ ...p, hasGym: v }))}
-            trackColor={{ true: '#007AFF' }}
+            trackColor={{ false: colors.bg.cardAlt, true: colors.neon.blue }}
+            thumbColor={colors.text.primary}
           />
         </View>
 
@@ -218,39 +265,51 @@ export default function OnboardingProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:        { flexGrow: 1, padding: 24, backgroundColor: '#FFF' },
+  container:        { flexGrow: 1, padding: 24, backgroundColor: colors.bg.primary },
   stepIndicator:    { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 24, marginTop: 8 },
-  dot:              { width: 8, height: 8, borderRadius: 4, backgroundColor: '#DDD' },
-  dotActive:        { backgroundColor: '#007AFF' },
-  title:            { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  label:            { fontSize: 14, fontWeight: '600', color: '#333', marginTop: 16, marginBottom: 8 },
-  input:            { borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 10, backgroundColor: '#FAFAFA' },
-  required:         { color: '#FF3B30' },
-  optional:         { fontWeight: '400', color: '#999', fontSize: 12 },
+  dot:              { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.bg.cardAlt },
+  dotActive:        { backgroundColor: colors.neon.blue },
+  title:            { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: colors.text.primary },
+  label:            { fontSize: 14, fontWeight: '600', color: colors.text.secondary, marginTop: 16, marginBottom: 8 },
+  input:            { borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 10, backgroundColor: colors.bg.card, color: colors.text.primary },
+  required:         { color: colors.danger },
+  optional:         { fontWeight: '400', color: colors.text.muted, fontSize: 12 },
   genderRow:        { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  genderBtn:        { flex: 1, alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#F5F5F5', borderWidth: 2, borderColor: 'transparent' },
-  genderBtnActive:  { borderColor: '#007AFF', backgroundColor: '#E8F4FF' },
-  genderEmoji:      { fontSize: 24, marginBottom: 4 },
-  genderText:       { fontSize: 13, fontWeight: '600', color: '#555' },
-  genderTextActive: { color: '#007AFF' },
+  genderBtn:        { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8, borderRadius: 12, backgroundColor: colors.bg.card, borderWidth: 2, borderColor: colors.border.subtle },
+  genderBtnActive:  { borderColor: colors.neon.blue, backgroundColor: 'rgba(47,200,255,0.1)' },
+  genderText:       { fontSize: 14, fontWeight: '700', color: colors.text.secondary },
+  genderTextActive: { color: colors.neon.blue },
+  genderSub:        { fontSize: 10, color: colors.text.muted, marginTop: 2, letterSpacing: 0.5 },
+  genderSubActive:  { color: 'rgba(47,200,255,0.6)' },
   row:              { flexDirection: 'row', gap: 8, marginBottom: 0 },
   half:             { flex: 1 },
-  inputWrapper:     { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#DDD', borderRadius: 10, backgroundColor: '#FAFAFA', paddingHorizontal: 12, marginBottom: 10, height: 52 },
-  inputInner:       { flex: 1, fontSize: 16 },
-  unit:             { fontSize: 13, color: '#888', marginLeft: 4 },
-  option:           { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 2, borderColor: '#EEE', marginBottom: 6 },
-  optionActive:     { borderColor: '#007AFF', backgroundColor: '#E8F4FF' },
-  optionEmoji:      { fontSize: 18, marginRight: 10 },
-  optionText:       { fontSize: 14, color: '#555' },
-  optionTextActive: { color: '#007AFF', fontWeight: '600' },
+  inputWrapper:     { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 10, backgroundColor: colors.bg.card, paddingHorizontal: 12, marginBottom: 10, height: 52 },
+  inputInner:       { flex: 1, fontSize: 16, color: colors.text.primary },
+  unit:             { fontSize: 13, color: colors.text.secondary, marginLeft: 4 },
+  option:             { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border.subtle, marginBottom: 6, backgroundColor: colors.bg.card },
+  optionActive:       { borderColor: colors.neon.blue, backgroundColor: 'rgba(47,200,255,0.08)' },
+  optionText:         { fontSize: 14, color: colors.text.secondary, flex: 1 },
+  optionTextActive:   { color: colors.neon.blue, fontWeight: '600' },
+  intensityBar:       { flexDirection: 'row', gap: 3, marginRight: 12 },
+  intensityDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.bg.cardAlt },
+  intensityDotOn:     { backgroundColor: colors.text.muted },
+  intensityDotOnActive: { backgroundColor: colors.neon.blue },
   toneRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  toneChip:         { flex: 1, minWidth: '44%', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12, backgroundColor: '#F0F0F0', borderWidth: 2, borderColor: 'transparent' },
-  toneChipActive:   { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-  toneEmoji:        { fontSize: 20, marginBottom: 4 },
-  toneText:         { fontSize: 13, color: '#333', fontWeight: '600' },
-  toneTextActive:   { color: '#FFF' },
-  gymRow:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 10, padding: 14, marginTop: 16, marginBottom: 4 },
-  gymDesc:          { fontSize: 11, color: '#888', marginTop: 2, maxWidth: 240 },
-  nextBtn:          { backgroundColor: '#007AFF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 16 },
-  nextBtnText:      { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  toneChip:         { flex: 1, minWidth: '44%', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8, borderRadius: 12, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.subtle },
+  toneChipActive:   { backgroundColor: 'rgba(47,200,255,0.12)', borderColor: colors.neon.blue },
+  toneText:         { fontSize: 13, color: colors.text.secondary, fontWeight: '700' },
+  toneTextActive:   { color: colors.neon.blue },
+  toneSub:          { fontSize: 10, color: colors.text.muted, marginTop: 3, letterSpacing: 0.5 },
+  toneSubActive:    { color: 'rgba(47,200,255,0.6)' },
+  drumRow:          { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginTop: 8, marginBottom: 16, backgroundColor: colors.bg.card, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 4, borderWidth: 1, borderColor: colors.border.subtle },
+  drumDivider:      { width: 1, alignSelf: 'stretch', backgroundColor: colors.border.subtle, marginVertical: 8 },
+  compoundPicker:   { alignItems: 'center', gap: 4 },
+  compoundLabel:    { fontSize: 11, color: colors.text.muted, letterSpacing: 0.5, fontWeight: '600' },
+  compoundDrums:    { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  compoundUnit:     { fontSize: 11, color: colors.text.secondary, letterSpacing: 0.3 },
+  decimalDot:       { fontSize: 22, fontWeight: '700', color: colors.text.secondary, marginBottom: 4, lineHeight: 28 },
+  gymRow:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bg.card, borderRadius: 10, padding: 14, marginTop: 16, marginBottom: 4, borderWidth: 1, borderColor: colors.border.subtle },
+  gymDesc:          { fontSize: 11, color: colors.text.muted, marginTop: 2, maxWidth: 240 },
+  nextBtn:          { backgroundColor: colors.neon.blue, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 16 },
+  nextBtnText:      { color: colors.bg.primary, fontSize: 16, fontWeight: 'bold' },
 });

@@ -20,4 +20,5 @@ export const colors = {
     blue: 'rgba(47,200,255,0.4)',
     subtle: '#1E2638',
   },
+  danger: '#FF4545',
 };

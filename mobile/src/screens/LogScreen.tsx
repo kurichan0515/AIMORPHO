@@ -6,6 +6,7 @@ import {
 import WeightLogScreen from './WeightLogScreen';
 import MealLogScreen from './MealLogScreen';
 import ExerciseLogScreen from './ExerciseLogScreen';
+import { colors } from '../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -63,10 +64,10 @@ export default function LogScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: '#F8F9FA' },
-  tabRow:        { flexDirection: 'row', backgroundColor: '#FFF', paddingTop: 8, elevation: 2 },
+  container:     { flex: 1, backgroundColor: colors.bg.primary },
+  tabRow:        { flexDirection: 'row', backgroundColor: colors.bg.navBar, paddingTop: 8, borderBottomWidth: 1, borderBottomColor: colors.border.subtle },
   tab:           { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive:     { borderBottomColor: '#007AFF' },
-  tabText:       { fontSize: 14, color: '#888', fontWeight: '600' },
-  tabTextActive: { color: '#007AFF' },
+  tabActive:     { borderBottomColor: colors.neon.blue },
+  tabText:       { fontSize: 14, color: colors.text.muted, fontWeight: '600' },
+  tabTextActive: { color: colors.neon.blue },
 });

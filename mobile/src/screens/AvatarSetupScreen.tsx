@@ -6,6 +6,7 @@ import { generateAvatar } from '../api/avatar';
 import { useAvatarStore } from '../store/useAvatarStore';
 import { getDefaultAvatars, DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
 import AvatarConsentModal from '../components/AvatarConsentModal';
+import { colors } from '../theme/colors';
 
 const MAX_GENERATES = 2;
 
@@ -66,7 +67,6 @@ export default function AvatarSetupScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>アバター</Text>
 
-      {/* 残回数バナー */}
       <View style={[styles.countBanner, remaining === 0 && styles.countBannerEmpty]}>
         {remaining > 0 ? (
           <Text style={styles.countText}>📸 あと <Text style={styles.countNum}>{remaining}</Text> 回生成できます</Text>
@@ -75,7 +75,6 @@ export default function AvatarSetupScreen() {
         )}
       </View>
 
-      {/* 生成済みアバター or デフォルト */}
       {hasGenerated ? (
         <View>
           <Text style={styles.sectionTitle}>生成済みアバター（5体）</Text>
@@ -114,7 +113,6 @@ export default function AvatarSetupScreen() {
         </View>
       )}
 
-      {/* 生成ボタン */}
       {remaining > 0 ? (
         <TouchableOpacity
           style={[styles.generateBtn, mutation.isPending && styles.btnDisabled]}
@@ -123,7 +121,7 @@ export default function AvatarSetupScreen() {
         >
           {mutation.isPending ? (
             <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color={colors.bg.primary} />
               <Text style={styles.generateBtnText}>  AI生成中... (最大90秒)</Text>
             </View>
           ) : (
@@ -154,30 +152,30 @@ export default function AvatarSetupScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:           { flex: 1, backgroundColor: '#F8F9FA', padding: 16 },
-  title:               { fontSize: 22, fontWeight: 'bold', marginBottom: 12 },
-  countBanner:         { backgroundColor: '#E8F4FF', borderRadius: 10, padding: 12, marginBottom: 16, alignItems: 'center' },
-  countBannerEmpty:    { backgroundColor: '#FFF3E0' },
-  countText:           { fontSize: 14, color: '#007AFF' },
-  countNum:            { fontSize: 18, fontWeight: 'bold' },
-  countTextEmpty:      { fontSize: 14, color: '#E65100' },
-  sectionTitle:        { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  avatarGrid:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-  avatarCell:          { width: '18%', alignItems: 'center', padding: 4, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
-  avatarCellActive:    { borderColor: '#007AFF', backgroundColor: '#E8F4FF' },
-  avatarThumb:         { width: 56, height: 74, borderRadius: 6 },
-  avatarThumbPlaceholder: { width: 56, height: 74, backgroundColor: '#DDD', borderRadius: 6 },
-  defaultCircle:       { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
-  defaultEmoji:        { fontSize: 24 },
-  avatarLabel:         { fontSize: 9, textAlign: 'center', marginTop: 4, color: '#555' },
-  currentBadge:        { fontSize: 9, color: '#007AFF', fontWeight: 'bold' },
-  emptyBox:            { backgroundColor: '#F0F0F0', borderRadius: 12, padding: 32, alignItems: 'center', marginBottom: 20 },
-  emptyText:           { color: '#888', fontSize: 14 },
-  generateBtn:         { backgroundColor: '#007AFF', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },
-  generateBtnText:     { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
-  generateBtnSub:      { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2, textAlign: 'center' },
-  loadingRow:          { flexDirection: 'row', alignItems: 'center' },
-  btnDisabled:         { opacity: 0.6 },
-  upgradeBtn:          { backgroundColor: '#FF9500', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },
-  upgradeBtnText:      { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+  container:              { flex: 1, backgroundColor: colors.bg.primary, padding: 16 },
+  title:                  { fontSize: 22, fontWeight: 'bold', marginBottom: 12, color: colors.text.primary },
+  countBanner:            { backgroundColor: 'rgba(47,200,255,0.1)', borderRadius: 10, padding: 12, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.border.blue },
+  countBannerEmpty:       { backgroundColor: 'rgba(255,128,51,0.1)', borderColor: 'rgba(255,128,51,0.4)' },
+  countText:              { fontSize: 14, color: colors.neon.blue },
+  countNum:               { fontSize: 18, fontWeight: 'bold' },
+  countTextEmpty:         { fontSize: 14, color: colors.neon.orange },
+  sectionTitle:           { fontSize: 16, fontWeight: 'bold', marginBottom: 12, color: colors.text.primary },
+  avatarGrid:             { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  avatarCell:             { width: '18%', alignItems: 'center', padding: 4, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
+  avatarCellActive:       { borderColor: colors.neon.blue, backgroundColor: 'rgba(47,200,255,0.1)' },
+  avatarThumb:            { width: 56, height: 74, borderRadius: 6 },
+  avatarThumbPlaceholder: { width: 56, height: 74, backgroundColor: colors.bg.cardAlt, borderRadius: 6 },
+  defaultCircle:          { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+  defaultEmoji:           { fontSize: 24 },
+  avatarLabel:            { fontSize: 9, textAlign: 'center', marginTop: 4, color: colors.text.secondary },
+  currentBadge:           { fontSize: 9, color: colors.neon.blue, fontWeight: 'bold' },
+  emptyBox:               { backgroundColor: colors.bg.card, borderRadius: 12, padding: 32, alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: colors.border.subtle },
+  emptyText:              { color: colors.text.secondary, fontSize: 14 },
+  generateBtn:            { backgroundColor: colors.neon.blue, borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },
+  generateBtnText:        { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
+  generateBtnSub:         { color: 'rgba(10,14,24,0.7)', fontSize: 11, marginTop: 2, textAlign: 'center' },
+  loadingRow:             { flexDirection: 'row', alignItems: 'center' },
+  btnDisabled:            { opacity: 0.6 },
+  upgradeBtn:             { backgroundColor: colors.neon.orange, borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },
+  upgradeBtnText:         { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
 });
