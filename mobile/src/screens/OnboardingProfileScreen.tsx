@@ -89,8 +89,10 @@ export default function OnboardingProfileScreen() {
       });
       setProfile({ heightCm, currentWeightKg: weightKg, gender: form.gender || null });
       navigation.navigate('OnboardingGoal');
-    } catch {
-      Alert.alert('エラー', '保存に失敗しました');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? err?.message ?? String(err);
+      console.error('[ProfileSave]', msg, err?.response?.status);
+      Alert.alert('エラー', `保存に失敗しました\n${msg}`);
     } finally {
       setLoading(false);
     }

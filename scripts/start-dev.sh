@@ -12,10 +12,14 @@ cat > "$PS_FILE" << PSEOF
 \$ErrorActionPreference = 'SilentlyContinue'
 netsh interface portproxy delete v4tov4 listenport=8081 listenaddress=0.0.0.0
 netsh interface portproxy delete v4tov4 listenport=8082 listenaddress=0.0.0.0
+netsh interface portproxy delete v4tov4 listenport=3001 listenaddress=0.0.0.0
 netsh interface portproxy add v4tov4 listenport=8081 listenaddress=0.0.0.0 connectport=8081 connectaddress=$WSL_IP
 netsh interface portproxy add v4tov4 listenport=8082 listenaddress=0.0.0.0 connectport=8082 connectaddress=$WSL_IP
+netsh interface portproxy add v4tov4 listenport=3001 listenaddress=0.0.0.0 connectport=3001 connectaddress=$WSL_IP
 netsh advfirewall firewall delete rule name="Metro RN Dev"
 netsh advfirewall firewall add rule name="Metro RN Dev" dir=in action=allow protocol=TCP localport=8081-8082
+netsh advfirewall firewall delete rule name="AIMORPHO API"
+netsh advfirewall firewall add rule name="AIMORPHO API" dir=in action=allow protocol=TCP localport=3001
 Write-Host "Port forwarding updated: Windows -> $WSL_IP:8081"
 PSEOF
 
