@@ -143,6 +143,12 @@ export type MealSuggestionResult = {
   error?: string;
 };
 
+const MEAL_GOAL_GUIDE: Record<string, string> = {
+  diet:     'たんぱく質を体重×1.6g以上確保しつつ、脂質を抑えた低カロリー食を優先する。糖質は極端に制限せず適度に摂取。',
+  bulk:     'たんぱく質を体重×2.0g以上確保しつつ、筋合成に必要な糖質もしっかり摂る。カロリー不足にならないよう注意。',
+  maintain: 'たんぱく質・脂質・糖質をバランスよく摂り、目標カロリーを大きく超えない食事を選ぶ。',
+};
+
 export const generateMealSuggestion = async (ctx: {
   age: number; heightCm: number; currentWeight: number; targetWeight: number;
   goalMode: string; lifestyle: string; aiTone: AiTone;
@@ -150,11 +156,37 @@ export const generateMealSuggestion = async (ctx: {
   targetKcal: number;
 }): Promise<MealSuggestionResult> => {
   const toneInstruction = AI_TONE_INSTRUCTION[ctx.aiTone] ?? AI_TONE_INSTRUCTION.friendly;
+  const goalLabel = GOAL_MODE_LABEL[ctx.goalMode] ?? ctx.goalMode;
+  const goalGuide = MEAL_GOAL_GUIDE[ctx.goalMode] ?? MEAL_GOAL_GUIDE.maintain;
+  const weightDiff = Math.abs(ctx.currentWeight - ctx.targetWeight).toFixed(1);
   const remaining = Math.max(0, ctx.targetKcal - ctx.todayKcal);
-  const remainingInstruction = remaining > 0
-    ? `- 残り摂取可能:${remaining}kcal\n\n# 指示\n${toneInstruction}\n残り摂取カロリーに合わせた食事提案を**JSONのみ**で返してください。`
-    : `- 目標摂取kcalを${ctx.todayKcal - ctx.targetKcal}kcal超過済み\n\n# 指示\n${toneInstruction}\n既に目標カロリーを超過しているため、食べ過ぎを労いつつ低カロリーな軽食・飲み物の提案、または食事を控えるアドバイスを**JSONのみ**で返してください。`;
-  const prompt = `# ユーザー情報\n- 年齢:${ctx.age}歳 / 身長:${ctx.heightCm}cm / 体重:${ctx.currentWeight}kg\n- 目標:${GOAL_MODE_LABEL[ctx.goalMode] ?? ctx.goalMode} / 目標体重:${ctx.targetWeight}kg\n- 活動レベル:${ctx.lifestyle}\n- 目標摂取kcal:${ctx.targetKcal}kcal\n- 今日の摂取状況: ${ctx.todayKcal}kcal（たんぱく質:${ctx.todayProtein}g / 脂質:${ctx.todayFat}g / 糖質:${ctx.todayCarb}g）\n${remainingInstruction}\n\n{"suggestion":"全体コメント（1〜2文）","meals":[{"name":"料理名","kcal":数値,"protein_g":数値,"fat_g":数値,"carb_g":数値,"reason":"選んだ理由（1文）"}]}`;
+  const targetProtein = Math.round(ctx.currentWeight * (ctx.goalMode === 'bulk' ? 2.0 : 1.6));
+
+  const situationBlock = remaining > 0
+    ? `- 残り摂取可能: ${remaining}kcal\n- たんぱく質 残り目安: ${Math.max(0, targetProtein - ctx.todayProtein)}g`
+    : `- 目標kcalを${ctx.todayKcal - ctx.targetKcal}kcal超過済み`;
+
+  const instruction = remaining > 0
+    ? `${toneInstruction}\n残り摂取カロリーと目標（${goalLabel}）に合わせた食事を提案してください。${goalGuide}`
+    : `${toneInstruction}\n既に目標カロリー超過のため、低カロリーな軽食か水分補給を提案するか、食事を控えるアドバイスをしてください。`;
+
+  const prompt = `# ユーザー情報
+- 年齢:${ctx.age}歳 / 身長:${ctx.heightCm}cm / 現在体重:${ctx.currentWeight}kg / 目標体重:${ctx.targetWeight}kg（差:${weightDiff}kg）
+- 目標:${goalLabel}
+- 活動レベル:${ctx.lifestyle}
+- 目標摂取kcal:${ctx.targetKcal}kcal / 1日たんぱく質目標:${targetProtein}g
+- 今日の摂取状況: ${ctx.todayKcal}kcal（たんぱく質:${ctx.todayProtein}g / 脂質:${ctx.todayFat}g / 糖質:${ctx.todayCarb}g）
+${situationBlock}
+
+# 栄養方針
+${goalGuide}
+
+# 指示
+${instruction}
+**JSONのみ**で返してください。
+
+{"suggestion":"全体コメント（1〜2文）","meals":[{"name":"料理名","kcal":数値,"protein_g":数値,"fat_g":数値,"carb_g":数値,"reason":"選んだ理由（1文）"}]}`;
+
   const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
   const text = extractText(raw);
   try {
@@ -173,6 +205,12 @@ export type ExerciseSuggestionResult = {
   error?: string;
 };
 
+const EXERCISE_GOAL_GUIDE: Record<string, string> = {
+  diet:     '有酸素運動（20分以上）を1〜2種目含め、筋肉量維持のため軽〜中強度の筋トレも加える。高回数（15〜20回×3セット）で脂肪燃焼を促す。',
+  bulk:     'コンパウンド種目（スクワット・デッドリフト・ベンチプレス等）を中心に、中〜高重量（6〜10回×4〜5セット）で筋肥大を狙う。有酸素は最小限にとどめる。',
+  maintain: '筋トレと有酸素をバランスよく組み合わせ、中強度（10〜12回×3セット）で体型維持を図る。',
+};
+
 export const generateExerciseSuggestion = async (ctx: {
   age: number; heightCm: number; currentWeight: number; targetWeight: number;
   goalMode: string; lifestyle: string; aiTone: AiTone; hasGym: boolean;
@@ -180,17 +218,59 @@ export const generateExerciseSuggestion = async (ctx: {
   recentMuscleGroups: string[];
 }): Promise<ExerciseSuggestionResult> => {
   const toneInstruction = AI_TONE_INSTRUCTION[ctx.aiTone] ?? AI_TONE_INSTRUCTION.friendly;
+  const goalLabel = GOAL_MODE_LABEL[ctx.goalMode] ?? ctx.goalMode;
+  const goalGuide = EXERCISE_GOAL_GUIDE[ctx.goalMode] ?? EXERCISE_GOAL_GUIDE.maintain;
+  const weightDiff = Math.abs(ctx.currentWeight - ctx.targetWeight).toFixed(1);
   const location = ctx.goToGym ? 'ジム（マシン・フリーウェイト利用可）' : '自宅・屋外（器具なし）';
-  const avoidGroups = ctx.recentMuscleGroups.length
-    ? `直近1週間で鍛えた部位: ${[...new Set(ctx.recentMuscleGroups)].join(', ')} → これらを避けてバランスよく提案すること`
-    : '直近1週間の記録なし → バランスよく提案すること';
-  const prompt = `# ユーザー情報\n- 年齢:${ctx.age}歳 / 身長:${ctx.heightCm}cm / 体重:${ctx.currentWeight}kg\n- 目標:${GOAL_MODE_LABEL[ctx.goalMode] ?? ctx.goalMode} / 目標体重:${ctx.targetWeight}kg\n- 活動レベル:${ctx.lifestyle}\n- トレーニング場所:${location}\n- ${avoidGroups}\n\n# 指示\n${toneInstruction}\n今日のトレーニングメニューを**JSONのみ**で返してください。3〜5種目を提案すること。\nmuscle_groupsは次のリストの中からのみ選択すること: ${MUSCLE_GROUPS.join(', ')}\n\n{"summary":"今日のメニュー概要（1〜2文）","exercises":[{"name":"種目名","sets":"例: 3×10回","kcal_estimate":消費kcal推定値(整数),"muscle_groups":["部位1","部位2"],"reason":"選んだ理由（1文）"}]}`;
+
+  const recentUniq = [...new Set(ctx.recentMuscleGroups)];
+  const avoidBlock = recentUniq.length
+    ? `- 直近1週間で鍛えた部位: ${recentUniq.join(', ')}\n  → 連続トレーニングを避け、これらを除いた部位を優先すること`
+    : '- 直近1週間の記録なし → バランスよく全身を提案すること';
+
+  const prompt = `# ユーザー情報
+- 年齢:${ctx.age}歳 / 身長:${ctx.heightCm}cm / 現在体重:${ctx.currentWeight}kg / 目標体重:${ctx.targetWeight}kg（差:${weightDiff}kg）
+- 目標:${goalLabel}
+- 活動レベル:${ctx.lifestyle}
+- トレーニング場所:${location}
+${avoidBlock}
+
+# トレーニング方針（${goalLabel}）
+${goalGuide}
+
+# 指示
+${toneInstruction}
+上記の方針と部位ローテーションを守り、今日のトレーニングメニューを**JSONのみ**で返してください。
+- 3〜5種目を提案すること
+- 連続して同じ部位を鍛えないこと
+- 目標（${goalLabel}）に合ったセット数・回数を設定すること
+- muscle_groupsは次のリストの中からのみ選択すること: ${MUSCLE_GROUPS.join(', ')}
+
+{"summary":"今日のメニュー概要（1〜2文）","exercises":[{"name":"種目名","sets":"例: 3×10回","kcal_estimate":消費kcal推定値(整数),"muscle_groups":["部位1","部位2"],"reason":"選んだ理由（1文）"}]}`;
+
   const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
   const text = extractText(raw);
   try {
     return parseJson(text) as ExerciseSuggestionResult;
   } catch {
     return { summary: '今日も頑張ろう！', exercises: [], error: 'parse_failed' };
+  }
+};
+
+export const classifyMuscleGroups = async (exerciseName: string): Promise<string[]> => {
+  const prompt = `以下のトレーニング種目が主に鍛える筋肉部位を返してください。
+種目名: ${exerciseName}
+選択肢: ${MUSCLE_GROUPS.join(', ')}
+上記の選択肢の中から該当するものを1〜3つ選び、JSONのみで返してください。
+{"muscle_groups":["部位1","部位2"]}`;
+  try {
+    const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }]);
+    const text = extractText(raw);
+    const parsed = parseJson(text) as { muscle_groups: string[] };
+    const valid = parsed.muscle_groups.filter(g => (MUSCLE_GROUPS as readonly string[]).includes(g));
+    return valid.length ? valid : [];
+  } catch {
+    return [];
   }
 };
 

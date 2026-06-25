@@ -8,6 +8,7 @@ import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { checkRecoveryCondition, calcUserTDEE } from '../../domain/health/RecoveryService';
 import { UserId } from '../../domain/shared/types';
+import { classifyMuscleGroups } from '../../infrastructure/gemini/GeminiClient';
 import { toJSTDate } from '../../infrastructure/dynamodb/client';
 
 type Deps = {
@@ -47,13 +48,16 @@ export const recordExercise = async (deps: Deps, userId: UserId, input: {
   exerciseName: string; durationMin?: number; kcalBurned?: number; completed?: boolean; muscleGroups?: string[];
 }) => {
   const now = new Date().toISOString();
+  const muscleGroups = input.muscleGroups?.length
+    ? input.muscleGroups
+    : await classifyMuscleGroups(input.exerciseName).catch(() => []);
   const log: ExerciseLog = {
     userId,
     exerciseName: input.exerciseName,
     durationMin: input.durationMin ?? 0,
     kcalBurned: input.kcalBurned ?? 0,
     completed: input.completed ?? true,
-    muscleGroups: input.muscleGroups,
+    muscleGroups,
     recordedAt: now,
   };
   await deps.bodyLogRepo.saveExercise(log);
