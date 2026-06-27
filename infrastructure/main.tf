@@ -57,10 +57,11 @@ module "lambda" {
 }
 
 module "api_gateway" {
-  source         = "./modules/api_gateway"
-  environment    = var.environment
-  aws_region     = var.aws_region
-  lambda_functions = module.lambda.function_arns
+  source                = "./modules/api_gateway"
+  environment           = var.environment
+  aws_region            = var.aws_region
+  lambda_functions      = module.lambda.function_arns
+  lambda_invoke_arns    = module.lambda.function_invoke_arns
   authorizer_invoke_arn = module.lambda.authorizer_invoke_arn
 
   depends_on = [module.lambda]

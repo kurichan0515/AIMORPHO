@@ -1,18 +1,27 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { generateAvatar } from '../api/avatar';
 import { useAvatarStore } from '../store/useAvatarStore';
 import { getDefaultAvatars, DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
 import AvatarConsentModal from '../components/AvatarConsentModal';
+import PremiumGateModal from '../components/PremiumGateModal';
 import { colors } from '../theme/colors';
+import api from '../api/client';
 
 const MAX_GENERATES = 2;
 
 export default function AvatarSetupScreen() {
   const { avatarImages, bodyState, regenerateCount, gender, setAvatarImages } = useAvatarStore();
   const [consentVisible, setConsentVisible] = React.useState(false);
+  const [premiumVisible, setPremiumVisible] = React.useState(false);
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => api.get('/users/me').then(r => r.data),
+  });
+  const isPremium = profile?.subscriptionTier === 'premium';
 
   const mutation = useMutation({
     mutationFn: (uri: string) => generateAvatar(uri),
@@ -21,31 +30,14 @@ export default function AvatarSetupScreen() {
       Alert.alert('完成！', 'アバターを再生成しました 🎉');
     },
     onError: (e: any) => {
-      if (e.response?.status === 403) {
-        Alert.alert(
-          '生成上限に達しました',
-          `無料で使えるアバター生成は${MAX_GENERATES}回までです。\nプレミアムプランにアップグレードすると無制限で生成できます。`,
-          [
-            { text: 'キャンセル', style: 'cancel' },
-            { text: 'アップグレード', onPress: () => Alert.alert('近日公開予定') },
-          ]
-        );
-      } else {
-        Alert.alert('エラー', 'アバター生成に失敗しました');
-      }
+      if (e.response?.status === 403) { setPremiumVisible(true); return; }
+      Alert.alert('エラー', 'アバター生成に失敗しました');
     },
   });
 
   const pickAndGenerate = () => {
-    if (regenerateCount >= MAX_GENERATES) {
-      Alert.alert(
-        '生成上限に達しました',
-        `無料で使えるアバター生成は${MAX_GENERATES}回までです。\nプレミアムプランにアップグレードすると無制限で生成できます。`,
-        [
-          { text: 'キャンセル', style: 'cancel' },
-          { text: 'アップグレード', onPress: () => Alert.alert('近日公開予定') },
-        ]
-      );
+    if (!isPremium && regenerateCount >= MAX_GENERATES) {
+      setPremiumVisible(true);
       return;
     }
     setConsentVisible(true);
@@ -59,7 +51,7 @@ export default function AvatarSetupScreen() {
     mutation.mutate(uri);
   };
 
-  const remaining = Math.max(0, MAX_GENERATES - regenerateCount);
+  const remaining = isPremium ? Infinity : Math.max(0, MAX_GENERATES - regenerateCount);
   const hasGenerated = Object.keys(avatarImages).length > 0;
   const defaultAvatars = !hasGenerated ? getDefaultAvatars(gender) : null;
 
@@ -67,8 +59,10 @@ export default function AvatarSetupScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>アバター</Text>
 
-      <View style={[styles.countBanner, remaining === 0 && styles.countBannerEmpty]}>
-        {remaining > 0 ? (
+      <View style={[styles.countBanner, !isPremium && remaining === 0 && styles.countBannerEmpty, isPremium && styles.countBannerPremium]}>
+        {isPremium ? (
+          <Text style={styles.countTextPremium}>👑 プレミアム — アバター生成 無制限</Text>
+        ) : remaining > 0 ? (
           <Text style={styles.countText}>📸 あと <Text style={styles.countNum}>{remaining}</Text> 回生成できます</Text>
         ) : (
           <Text style={styles.countTextEmpty}>🔒 無料生成上限 ({MAX_GENERATES}/{MAX_GENERATES})</Text>
@@ -113,7 +107,7 @@ export default function AvatarSetupScreen() {
         </View>
       )}
 
-      {remaining > 0 ? (
+      {(isPremium || remaining > 0) ? (
         <TouchableOpacity
           style={[styles.generateBtn, mutation.isPending && styles.btnDisabled]}
           onPress={pickAndGenerate}
@@ -127,17 +121,14 @@ export default function AvatarSetupScreen() {
           ) : (
             <View>
               <Text style={styles.generateBtnText}>
-                📸 顔写真で{hasGenerated ? '再' : ''}生成（残り{remaining}回）
+                📸 顔写真で{hasGenerated ? '再' : ''}生成{isPremium ? '' : `（残り${remaining}回）`}
               </Text>
               <Text style={styles.generateBtnSub}>写真はGemini AIで処理・生成後に削除されます</Text>
             </View>
           )}
         </TouchableOpacity>
       ) : (
-        <TouchableOpacity
-          style={styles.upgradeBtn}
-          onPress={() => Alert.alert('プレミアムプラン', '追加生成はプレミアムプランへのアップグレードが必要です。\n近日公開予定！')}
-        >
+        <TouchableOpacity style={styles.upgradeBtn} onPress={() => setPremiumVisible(true)}>
           <Text style={styles.upgradeBtnText}>✨ プレミアムで無制限生成</Text>
         </TouchableOpacity>
       )}
@@ -146,6 +137,13 @@ export default function AvatarSetupScreen() {
         visible={consentVisible}
         onAgree={handleConsentAgree}
         onCancel={() => setConsentVisible(false)}
+      />
+
+      <PremiumGateModal
+        visible={premiumVisible}
+        onClose={() => setPremiumVisible(false)}
+        title="アバター生成の上限に達しました"
+        description={`無料プランでのアバター生成は${MAX_GENERATES}回までです。プレミアムプランで何度でも再生成できます。`}
       />
     </ScrollView>
   );
@@ -156,9 +154,11 @@ const styles = StyleSheet.create({
   title:                  { fontSize: 22, fontWeight: 'bold', marginBottom: 12, color: colors.text.primary },
   countBanner:            { backgroundColor: 'rgba(47,200,255,0.1)', borderRadius: 10, padding: 12, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.border.blue },
   countBannerEmpty:       { backgroundColor: 'rgba(255,128,51,0.1)', borderColor: 'rgba(255,128,51,0.4)' },
+  countBannerPremium:     { backgroundColor: 'rgba(255,209,102,0.1)', borderColor: 'rgba(255,209,102,0.4)' },
   countText:              { fontSize: 14, color: colors.neon.blue },
   countNum:               { fontSize: 18, fontWeight: 'bold' },
   countTextEmpty:         { fontSize: 14, color: colors.neon.orange },
+  countTextPremium:       { fontSize: 14, color: colors.neon.yellow, fontWeight: '600' },
   sectionTitle:           { fontSize: 16, fontWeight: 'bold', marginBottom: 12, color: colors.text.primary },
   avatarGrid:             { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   avatarCell:             { width: '18%', alignItems: 'center', padding: 4, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },

@@ -1,13 +1,14 @@
 locals {
   functions = {
-    fn-auth    = { memory = 128, timeout = 5,  provisioned = false }
-    fn-user    = { memory = 128, timeout = 10, provisioned = false }
-    fn-log     = { memory = 256, timeout = 15, provisioned = false }
-    fn-meal    = { memory = 512, timeout = 30, provisioned = true  }
-    fn-ai      = { memory = 512, timeout = 30, provisioned = true  }
-    fn-avatar  = { memory = 512, timeout = 90, provisioned = true  }
-    fn-social  = { memory = 128, timeout = 10, provisioned = false }
-    authorizer = { memory = 128, timeout = 5,  provisioned = false }
+    fn-auth         = { memory = 128, timeout = 5,  provisioned = false }
+    fn-user         = { memory = 128, timeout = 10, provisioned = false }
+    fn-log          = { memory = 256, timeout = 15, provisioned = false }
+    fn-meal         = { memory = 512, timeout = 30, provisioned = false }
+    fn-ai           = { memory = 512, timeout = 30, provisioned = false }
+    fn-avatar       = { memory = 512, timeout = 90, provisioned = true  }
+    fn-social       = { memory = 128, timeout = 10, provisioned = false }
+    fn-subscription = { memory = 128, timeout = 15, provisioned = false }
+    authorizer      = { memory = 128, timeout = 5,  provisioned = false }
   }
   layers = ["layer-db", "layer-auth", "layer-gemini"]
   common_env = {
@@ -56,7 +57,7 @@ resource "aws_lambda_provisioned_concurrency_config" "provisioned" {
 
   function_name                  = aws_lambda_function.functions[each.key].function_name
   qualifier                      = aws_lambda_function.functions[each.key].version
-  provisioned_concurrent_executions = 2
+  provisioned_concurrent_executions = 1
 }
 
 resource "aws_cloudwatch_log_group" "functions" {

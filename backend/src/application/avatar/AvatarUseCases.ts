@@ -45,8 +45,11 @@ export const getAvatarUploadUrl = async (userId: UserId) => {
 export const MAX_AVATAR_GENERATES = 2;
 
 export const generateAvatar = async (deps: Deps, userId: UserId, facePhotoKey: string) => {
-  const current = await deps.avatarRepo.get(userId);
-  if ((current?.regenerateCount ?? 0) >= MAX_AVATAR_GENERATES) {
+  const [current, user] = await Promise.all([
+    deps.avatarRepo.get(userId),
+    deps.userRepo.findById(userId),
+  ]);
+  if (user?.subscriptionTier !== 'premium' && (current?.regenerateCount ?? 0) >= MAX_AVATAR_GENERATES) {
     return { error: 'limit_reached', statusCode: 403 } as const;
   }
 

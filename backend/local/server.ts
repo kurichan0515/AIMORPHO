@@ -9,8 +9,9 @@ import { handler as fnMeal }   from '../functions/fn-meal/index';
 import { handler as fnAvatar } from '../functions/fn-avatar/index';
 import { handler as fnSocial } from '../functions/fn-social/index';
 import { handler as fnAi }     from '../functions/fn-ai/index';
-import { handler as fnAdmin }  from '../src/presentation/handlers/adminHandler';
-import { handler as fnLegal }  from '../src/presentation/handlers/legalHandler';
+import { handler as fnAdmin }        from '../src/presentation/handlers/adminHandler';
+import { handler as fnLegal }        from '../src/presentation/handlers/legalHandler';
+import { handler as fnSubscription } from '../functions/fn-subscription/index';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -88,6 +89,11 @@ app.post('/admin/legal/activate',      wrap(fnAdmin as Parameters<typeof wrap>[0
 
 app.get('/legal/terms',   wrap(fnLegal as Parameters<typeof wrap>[0]));
 app.get('/legal/privacy', wrap(fnLegal as Parameters<typeof wrap>[0]));
+
+app.post('/subscriptions/verify/apple',   auth, wrap(fnSubscription as Parameters<typeof wrap>[0]));
+app.post('/subscriptions/verify/google',  auth, wrap(fnSubscription as Parameters<typeof wrap>[0]));
+app.post('/subscriptions/webhook/apple',  wrap(fnSubscription as Parameters<typeof wrap>[0]));
+app.post('/subscriptions/webhook/google', wrap(fnSubscription as Parameters<typeof wrap>[0]));
 
 app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

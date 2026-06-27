@@ -6,7 +6,7 @@ BUCKET="${S3_BUCKET_CODE:-aimorpho-lambda-code}"
 ENV="${ENVIRONMENT:-prod}"
 FUNCTIONS_DIR="$(dirname "$0")/../functions"
 
-FUNCTIONS=(fn-auth fn-user fn-log fn-meal fn-ai fn-avatar fn-social authorizer)
+FUNCTIONS=(fn-auth fn-user fn-log fn-meal fn-ai fn-avatar fn-social fn-subscription authorizer)
 
 deploy_function() {
   local fn=$1

@@ -157,6 +157,25 @@ export class UserRepository implements IUserRepository {
     }));
   }
 
+  async updateSubscriptionTier(
+    userId: UserId,
+    tier: 'free' | 'premium',
+    meta: { expiresAt: string; store: 'apple' | 'google'; productId: string; transactionId: string }
+  ): Promise<void> {
+    await db.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'PROFILE' },
+      UpdateExpression: 'SET subscriptionTier = :tier, subscriptionExpiresAt = :exp, subscriptionStore = :store, subscriptionProductId = :pid, subscriptionTransactionId = :txid',
+      ExpressionAttributeValues: {
+        ':tier': tier,
+        ':exp': meta.expiresAt,
+        ':store': meta.store,
+        ':pid': meta.productId,
+        ':txid': meta.transactionId,
+      },
+    }));
+  }
+
   #mapUser(userId: UserId, item: Record<string, unknown>): User {
     return {
       userId,
@@ -176,6 +195,10 @@ export class UserRepository implements IUserRepository {
       timezone: (item.timezone as string) ?? 'Asia/Tokyo',
       createdAt: item.createdAt as string,
       subscriptionTier: (item.subscriptionTier as User['subscriptionTier']) ?? 'free',
+      subscriptionExpiresAt: item.subscriptionExpiresAt as string | undefined,
+      subscriptionStore: item.subscriptionStore as User['subscriptionStore'],
+      subscriptionProductId: item.subscriptionProductId as string | undefined,
+      subscriptionTransactionId: item.subscriptionTransactionId as string | undefined,
       deleted: item.deleted as boolean | undefined,
       deletedAt: item.deletedAt as string | undefined,
     };

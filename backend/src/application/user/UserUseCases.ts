@@ -5,6 +5,7 @@ import { emptyStreak } from '../../domain/user/Streak';
 import { IBadgeRepository } from '../../domain/badge/IBadgeRepository';
 import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { UserId, GoalMode } from '../../domain/shared/types';
+import { FREE_AI_TONES } from '../../domain/usage/UsageLimits';
 
 type UserDeps = { userRepo: IUserRepository };
 type BadgeDeps = { badgeRepo: IBadgeRepository };
@@ -19,6 +20,12 @@ export const getProfile = async ({ userRepo }: UserDeps, userId: UserId) => {
 
 export const updateProfile = async ({ userRepo }: UserDeps, userId: UserId, input: UpdateProfileInput) => {
   if (!Object.keys(input).length) return { error: 'No valid fields to update', statusCode: 400 } as const;
+  if (input.aiTone) {
+    const user = await userRepo.findById(userId);
+    if (user?.subscriptionTier !== 'premium' && !FREE_AI_TONES.includes(input.aiTone)) {
+      return { error: 'AI tone requires premium', statusCode: 403 } as const;
+    }
+  }
   const updated = await userRepo.updateProfile(userId, input);
   const { passwordHash, ...profile } = updated;
   return { data: profile, statusCode: 200 } as const;

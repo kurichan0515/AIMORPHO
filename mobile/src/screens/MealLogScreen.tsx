@@ -6,6 +6,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHistory } from '../api/logs';
 import api from '../api/client';
 import { colors } from '../theme/colors';
+import PremiumGateModal from '../components/PremiumGateModal';
 
 interface MealResult {
   menu_name: string;
@@ -28,7 +29,6 @@ interface ManualForm {
 }
 
 const isLimitError = (err: any) => err?.response?.status === 429;
-const LIMIT_MESSAGE = '本日のAI解析利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
 
 const MOCK_MEAL_HISTORY = [
   { SK: 'mock-1', menuName: '鶏むね肉とブロッコリー', kcal: 380, proteinG: 45, fatG: 8,  carbG: 12, recordedAt: '2026-06-16T08:00:00' },
@@ -116,6 +116,9 @@ export default function MealLogScreen() {
   const [manual, setManual] = useState<ManualForm>({ menu_name: '', kcal: '', protein_g: '', fat_g: '', carb_g: '' });
   const [editingKcal, setEditingKcal] = useState(false);
   const [editedKcal, setEditedKcal] = useState('');
+  const [premiumModal, setPremiumModal] = useState<{ visible: boolean; title: string; desc: string }>({ visible: false, title: '', desc: '' });
+
+  const showPremiumModal = (title: string, desc: string) => setPremiumModal({ visible: true, title, desc });
 
   const { data: history, refetch } = useQuery({ queryKey: ['mealHistory'], queryFn: () => getMealHistory({ limit: 30 }) });
 
@@ -143,8 +146,8 @@ export default function MealLogScreen() {
     },
     onError: (err) => {
       if (isLimitError(err)) {
-        Alert.alert('利用回数の上限', LIMIT_MESSAGE);
         setImageUri(null);
+        showPremiumModal('AI解析の上限に達しました', '本日のAI食事解析回数の上限です。プレミアムプランで無制限にご利用いただけます。');
         return;
       }
       setManualMode(true);
@@ -173,7 +176,13 @@ export default function MealLogScreen() {
       refetch();
       Alert.alert('登録しました');
     },
-    onError: () => Alert.alert('エラー', '登録に失敗しました'),
+    onError: (err: any) => {
+      if (isLimitError(err)) {
+        showPremiumModal('月次記録の上限に達しました', '今月の食事記録件数の上限です。プレミアムプランで無制限に記録できます。');
+        return;
+      }
+      Alert.alert('エラー', '登録に失敗しました');
+    },
   });
 
   const manualMutation = useMutation({
@@ -190,7 +199,13 @@ export default function MealLogScreen() {
       refetch();
       Alert.alert('保存しました');
     },
-    onError: () => Alert.alert('エラー', '保存に失敗しました'),
+    onError: (err: any) => {
+      if (isLimitError(err)) {
+        showPremiumModal('月次記録の上限に達しました', '今月の食事記録件数の上限です。プレミアムプランで無制限に記録できます。');
+        return;
+      }
+      Alert.alert('エラー', '保存に失敗しました');
+    },
   });
 
   const submitManual = () => {
@@ -373,6 +388,13 @@ export default function MealLogScreen() {
         </TouchableOpacity>
       ))}
       <View style={{ height: 24 }} />
+
+      <PremiumGateModal
+        visible={premiumModal.visible}
+        onClose={() => setPremiumModal(p => ({ ...p, visible: false }))}
+        title={premiumModal.title}
+        description={premiumModal.desc}
+      />
     </ScrollView>
   );
 }

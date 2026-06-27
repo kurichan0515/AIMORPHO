@@ -19,6 +19,10 @@ export type User = {
   createdAt: DateString;
   fcmToken?: string;
   subscriptionTier?: 'free' | 'premium';
+  subscriptionExpiresAt?: DateString;
+  subscriptionStore?: 'apple' | 'google';
+  subscriptionProductId?: string;
+  subscriptionTransactionId?: string;
   deleted?: boolean;
   deletedAt?: DateString;
 };

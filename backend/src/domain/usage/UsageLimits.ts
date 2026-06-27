@@ -1,3 +1,5 @@
+import { AiTone } from '../shared/types';
+
 export type UsageType = 'mealAnalysis' | 'mealSuggestion' | 'exerciseSuggestion';
 
 export const FREE_DAILY_LIMITS: Record<UsageType, number> = {
@@ -5,3 +7,6 @@ export const FREE_DAILY_LIMITS: Record<UsageType, number> = {
   mealSuggestion: 2,
   exerciseSuggestion: 1,
 };
+
+export const FREE_AI_TONES: AiTone[] = ['friendly'];
+export const FREE_MONTHLY_MEAL_LIMIT = 60;

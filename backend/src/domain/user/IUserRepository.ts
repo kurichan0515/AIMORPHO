@@ -19,6 +19,11 @@ export interface IUserRepository {
   createEmailIndex(email: string, userId: UserId): Promise<void>;
   upgradeToRegistered(userId: UserId, email: string, passwordHash: string): Promise<void>;
   saveFcmToken(userId: UserId, fcmToken: string): Promise<void>;
+  updateSubscriptionTier(
+    userId: UserId,
+    tier: 'free' | 'premium',
+    meta: { expiresAt: string; store: 'apple' | 'google'; productId: string; transactionId: string }
+  ): Promise<void>;
   listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]>;
   deleteAccount(userId: UserId): Promise<void>;
 }

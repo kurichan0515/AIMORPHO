@@ -5,6 +5,8 @@ import { IUserRepository } from '../../domain/user/IUserRepository';
 import { IBadgeRepository } from '../../domain/badge/IBadgeRepository';
 import { UserId, GroupId } from '../../domain/shared/types';
 
+const FREE_GROUP_LIMIT = 1;
+
 type Deps = { groupRepo: IGroupRepository; userRepo: IUserRepository; badgeRepo: IBadgeRepository };
 
 export const createGroup = async (deps: Deps, userId: UserId, name: string) => {
@@ -21,8 +23,15 @@ export const joinGroup = async (deps: Deps, userId: UserId, inviteCode: string) 
   const group = await deps.groupRepo.findByInviteCode(inviteCode);
   if (!group) return { error: 'Invalid invite code', statusCode: 404 } as const;
 
-  const existing = await deps.groupRepo.getMember(group.groupId, userId);
+  const [existing, user, myGroups] = await Promise.all([
+    deps.groupRepo.getMember(group.groupId, userId),
+    deps.userRepo.findById(userId),
+    deps.groupRepo.getGroupsByUser(userId),
+  ]);
   if (existing) return { error: 'Already a member', statusCode: 409 } as const;
+  if (user?.subscriptionTier !== 'premium' && myGroups.length >= FREE_GROUP_LIMIT) {
+    return { error: 'Group limit reached', statusCode: 403 } as const;
+  }
 
   const member: GroupMember = { groupId: group.groupId, userId, role: 'member', joinedAt: new Date().toISOString() };
   await deps.groupRepo.addMember(member);

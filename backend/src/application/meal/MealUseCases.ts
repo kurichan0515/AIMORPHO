@@ -1,7 +1,7 @@
 import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { IUserRepository } from '../../domain/user/IUserRepository';
 import { IUsageRepository } from '../../domain/usage/IUsageRepository';
-import { FREE_DAILY_LIMITS } from '../../domain/usage/UsageLimits';
+import { FREE_DAILY_LIMITS, FREE_MONTHLY_MEAL_LIMIT } from '../../domain/usage/UsageLimits';
 import { MealLog } from '../../domain/meal/MealLog';
 import { BadgeService } from '../../domain/badge/BadgeService';
 import { analyzeMeal } from '../../infrastructure/gemini/GeminiClient';
@@ -38,6 +38,14 @@ export const confirmMealLog = async (
   userId: UserId,
   input: { s3Key: string; menuName: string; kcal: number; proteinG: number; fatG: number; carbG: number; confidence?: MealLog['confidence']; geminiRaw?: string }
 ) => {
+  const user = await deps.userRepo.findById(userId);
+  if (user?.subscriptionTier !== 'premium') {
+    const yearMonth = toJSTDate(new Date().toISOString()).slice(0, 7);
+    const monthCount = await deps.mealRepo.countMonth(userId, yearMonth);
+    if (monthCount >= FREE_MONTHLY_MEAL_LIMIT) {
+      return { error: 'Monthly meal limit reached', statusCode: 429 } as const;
+    }
+  }
   const now = new Date().toISOString();
   const log: MealLog = {
     userId,
@@ -64,6 +72,14 @@ export const saveMealManual = async (
   userId: UserId,
   input: { menuName: string; kcal: number; proteinG: number; fatG: number; carbG: number }
 ) => {
+  const user = await deps.userRepo.findById(userId);
+  if (user?.subscriptionTier !== 'premium') {
+    const yearMonth = toJSTDate(new Date().toISOString()).slice(0, 7);
+    const monthCount = await deps.mealRepo.countMonth(userId, yearMonth);
+    if (monthCount >= FREE_MONTHLY_MEAL_LIMIT) {
+      return { error: 'Monthly meal limit reached', statusCode: 429 } as const;
+    }
+  }
   const now = new Date().toISOString();
   const log: MealLog = {
     userId,

@@ -7,11 +7,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createGroup, joinGroup, getGroup, getGroupFeed, leaveGroup } from '../api/social';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
+import PremiumGateModal from '../components/PremiumGateModal';
 
 export default function GroupScreen() {
   const [tab, setTab] = useState<'my' | 'create' | 'join'>('my');
   const [groupName, setGroupName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [premiumVisible, setPremiumVisible] = useState(false);
   const qc = useQueryClient();
 
   const [myGroupId, setMyGroupId] = useState<string | null>(null);
@@ -52,7 +54,10 @@ export default function GroupScreen() {
       setTab('my');
       qc.invalidateQueries({ queryKey: ['group'] });
     },
-    onError: () => Alert.alert('エラー', '招待コードが正しくありません'),
+    onError: (err: any) => {
+      if (err?.response?.status === 403) { setPremiumVisible(true); return; }
+      Alert.alert('エラー', '招待コードが正しくありません');
+    },
   });
 
   const leaveMutation = useMutation({
@@ -71,6 +76,12 @@ export default function GroupScreen() {
 
   return (
     <View style={styles.container}>
+      <PremiumGateModal
+        visible={premiumVisible}
+        onClose={() => setPremiumVisible(false)}
+        title="グループ参加の上限に達しました"
+        description="無料プランでは1つのグループにのみ参加できます。プレミアムプランで複数グループに参加できます。"
+      />
       <View style={styles.tabs}>
         {(['my', 'create', 'join'] as const).map(t => (
           <TouchableOpacity key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
