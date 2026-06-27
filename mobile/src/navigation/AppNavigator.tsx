@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { HomeIcon, RecordIcon, BadgeIcon, GroupIcon, SettingsIcon } from '../components/ui/icons';
+import { HomeIcon, RecordIcon, GroupIcon, SettingsIcon } from '../components/ui/icons';
 import { colors } from '../theme/colors';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,13 +18,17 @@ import OnboardingWelcomeScreen from '../screens/OnboardingWelcomeScreen';
 import OnboardingProfileScreen from '../screens/OnboardingProfileScreen';
 import OnboardingGoalScreen from '../screens/OnboardingGoalScreen';
 import OnboardingAvatarScreen from '../screens/OnboardingAvatarScreen';
+import BodyEditScreen from '../screens/BodyEditScreen';
+import TrainingEditScreen from '../screens/TrainingEditScreen';
+import AICoachEditScreen from '../screens/AICoachEditScreen';
+import GoalEditScreen from '../screens/GoalEditScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const OnboardingStack = createNativeStackNavigator();
 
 const TAB_ICONS: Record<string, (props: { color: string; size?: number }) => React.JSX.Element> = {
-  ホーム: HomeIcon, 記録: RecordIcon, リワード: BadgeIcon, グループ: GroupIcon, 設定: SettingsIcon,
+  ホーム: HomeIcon, 記録: RecordIcon, グループ: GroupIcon, 設定: SettingsIcon,
 };
 
 function MainTabs() {
@@ -47,7 +51,6 @@ function MainTabs() {
     >
       <Tab.Screen name="ホーム"   component={HomeScreen} />
       <Tab.Screen name="記録"     component={LogScreen} />
-      <Tab.Screen name="リワード" component={BadgesScreen} />
       <Tab.Screen name="グループ" component={GroupScreen} />
       <Tab.Screen name="設定"     component={ProfileScreen} />
     </Tab.Navigator>
@@ -83,10 +86,15 @@ export default function AppNavigator() {
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         ) : (
           <>
-            <Stack.Screen name="Main"       component={MainTabs} />
-            <Stack.Screen name="AvatarSetup" component={AvatarSetupScreen} options={{ headerShown: true, title: 'アバター設定' }} />
-            <Stack.Screen name="Login"    component={LoginScreen}   options={{ headerShown: true, title: '既存アカウントでログイン' }} />
-            <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: 'アカウント登録' }} />
+            <Stack.Screen name="Main"        component={MainTabs} />
+            <Stack.Screen name="AvatarSetup" component={AvatarSetupScreen}  options={{ headerShown: true, title: 'アバター設定' }} />
+            <Stack.Screen name="Rewards"     component={BadgesScreen}        options={{ headerShown: true, title: 'リワード' }} />
+            <Stack.Screen name="BodyEdit"    component={BodyEditScreen}      options={{ headerShown: true, title: '身体データ' }} />
+            <Stack.Screen name="TrainingEdit"component={TrainingEditScreen}  options={{ headerShown: true, title: 'トレーニング設定' }} />
+            <Stack.Screen name="AICoachEdit" component={AICoachEditScreen}   options={{ headerShown: true, title: 'AIコーチ設定' }} />
+            <Stack.Screen name="GoalEdit"    component={GoalEditScreen}      options={{ headerShown: true, title: '目標設定' }} />
+            <Stack.Screen name="Login"       component={LoginScreen}         options={{ headerShown: true, title: '既存アカウントでログイン' }} />
+            <Stack.Screen name="Register"    component={RegisterScreen}      options={{ headerShown: true, title: 'アカウント登録' }} />
           </>
         )}
       </Stack.Navigator>
