@@ -5,11 +5,25 @@ import { verifyGooglePurchase as verifyGooglePlay } from '../../infrastructure/i
 
 type Deps = { userRepo: IUserRepository };
 
+const IAP_MOCK = process.env.IAP_MOCK === 'true';
+const MOCK_EXPIRES_AT = () => new Date(Date.now() + 365 * 86400000).toISOString();
+
 export const verifyApplePurchase = async (
   deps: Deps,
   userId: UserId,
   transactionId: string
 ) => {
+  if (IAP_MOCK) {
+    const expiresAt = MOCK_EXPIRES_AT();
+    await deps.userRepo.updateSubscriptionTier(userId, 'premium', {
+      expiresAt,
+      store: 'apple',
+      productId: 'com.aimorpho.premium.monthly',
+      transactionId: `mock-apple-${transactionId}`,
+    });
+    return { data: { tier: 'premium', expiresAt }, statusCode: 200 } as const;
+  }
+
   const result = await verifyAppleTransaction(transactionId);
   if (!result.ok) {
     return { error: result.reason, statusCode: 400 } as const;
@@ -38,6 +52,17 @@ export const verifyGooglePurchase = async (
   productId: string,
   purchaseToken: string
 ) => {
+  if (IAP_MOCK) {
+    const expiresAt = MOCK_EXPIRES_AT();
+    await deps.userRepo.updateSubscriptionTier(userId, 'premium', {
+      expiresAt,
+      store: 'google',
+      productId,
+      transactionId: `mock-google-${purchaseToken}`,
+    });
+    return { data: { tier: 'premium', expiresAt }, statusCode: 200 } as const;
+  }
+
   const result = await verifyGooglePlay(productId, purchaseToken);
   if (!result.ok) {
     return { error: result.reason, statusCode: 400 } as const;

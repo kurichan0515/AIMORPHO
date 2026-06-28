@@ -19,6 +19,8 @@ export function useIAP() {
   const errorListenerRef    = useRef<ReturnType<typeof purchaseErrorListener>   | null>(null);
 
   useEffect(() => {
+    if (__DEV__) return;
+
     initConnection().catch(() => {});
 
     purchaseListenerRef.current = purchaseUpdatedListener(async (purchase) => {
@@ -55,6 +57,17 @@ export function useIAP() {
   }, [qc]);
 
   const purchase = useCallback(async () => {
+    if (__DEV__) {
+      try {
+        await verifyApplePurchase('dev-mock-transaction');
+        qc.invalidateQueries({ queryKey: ['profile'] });
+        Alert.alert('プレミアム登録完了！(開発モック)', 'プレミアムプランをご利用いただけます。');
+      } catch {
+        Alert.alert('エラー', 'バックエンドへの接続に失敗しました。ローカルサーバーが起動しているか確認してください。');
+      }
+      return;
+    }
+
     try {
       await requestPurchase({
         request: {
@@ -66,7 +79,7 @@ export function useIAP() {
     } catch {
       // purchaseErrorListener で処理
     }
-  }, []);
+  }, [qc]);
 
   return { purchase };
 }
