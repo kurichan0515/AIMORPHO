@@ -8,7 +8,7 @@ import { IAiService } from '../../domain/ai/IAiService';
 import { BadgeService } from '../../domain/badge/BadgeService';
 import { WeightLog } from '../../domain/body-log/WeightLog';
 import { ExerciseLog } from '../../domain/body-log/ExerciseLog';
-import { emptyStreak, updateStreak } from '../../domain/user/Streak';
+import { emptyStreak, updateStreak, STREAK_MILESTONES } from '../../domain/user/Streak';
 import { checkRecoveryCondition, calcUserTDEE } from '../../domain/health/RecoveryService';
 import { Result, ok } from '../../domain/shared/Result';
 import { UserId } from '../../domain/shared/types';
@@ -32,7 +32,7 @@ export class BodyLogApplicationService {
     await this.bodyLogRepo.saveWeight(log);
 
     const currentStreak = await this.streakRepo.getStreak(userId) ?? emptyStreak(userId);
-    const newStreak = updateStreak(currentStreak, now, toJSTDate);
+    const { streak: newStreak, returnedAfterBreak } = updateStreak(currentStreak, now, toJSTDate);
     await this.streakRepo.saveStreak(newStreak);
 
     await this.#checkAndHandleGoalAchievement(userId, weightKg);
@@ -43,7 +43,14 @@ export class BodyLogApplicationService {
     const streakBadges = await this.badgeSvc.checkStreakBadges(userId, newStreak.currentDays);
     newBadges.push(...streakBadges);
 
-    return ok({ weightKg, bodyFatPct, recordedAt: now, newBadges });
+    if (returnedAfterBreak) {
+      const cb = await this.badgeSvc.award(userId, 'comeback');
+      if (cb) newBadges.push(cb);
+    }
+
+    const streakMilestone = STREAK_MILESTONES.includes(newStreak.currentDays) ? newStreak.currentDays : null;
+
+    return ok({ weightKg, bodyFatPct, recordedAt: now, newBadges, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
   }
 
   async getWeightHistory(userId: UserId, from: string, to: string, limit: number): Promise<Result<unknown>> {
@@ -69,8 +76,24 @@ export class BodyLogApplicationService {
     };
     await this.bodyLogRepo.saveExercise(log);
 
+    // ストリーク更新（食事・体重と同じく運動も継続カウント）
+    const currentStreak = await this.streakRepo.getStreak(userId) ?? emptyStreak(userId);
+    const { streak: newStreak, returnedAfterBreak } = updateStreak(currentStreak, now, toJSTDate);
+    await this.streakRepo.saveStreak(newStreak);
+
     const count = await this.bodyLogRepo.countExercise(userId);
     const newBadges = await this.badgeSvc.checkCountBadges(userId, 'exercise', count);
+
+    const firstBadge = await this.badgeSvc.award(userId, 'exercise_first');
+    if (firstBadge) newBadges.push(firstBadge);
+
+    const streakBadges = await this.badgeSvc.checkStreakBadges(userId, newStreak.currentDays);
+    newBadges.push(...streakBadges);
+
+    if (returnedAfterBreak) {
+      const cb = await this.badgeSvc.award(userId, 'comeback');
+      if (cb) newBadges.push(cb);
+    }
 
     let recovered = false;
     if (log.completed) {
@@ -81,7 +104,9 @@ export class BodyLogApplicationService {
       }
     }
 
-    return ok({ ...log, newBadges, recovered });
+    const streakMilestone = STREAK_MILESTONES.includes(newStreak.currentDays) ? newStreak.currentDays : null;
+
+    return ok({ ...log, newBadges, recovered, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
   }
 
   async getExerciseHistory(userId: UserId, from: string, to: string, limit: number): Promise<Result<unknown>> {

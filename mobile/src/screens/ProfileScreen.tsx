@@ -135,16 +135,12 @@ export default function ProfileScreen() {
       <Section label="その他" sub="OTHER" />
       <View style={s.card}>
         <MenuRow label="アバター設定" onPress={() => navigation.navigate('AvatarSetup')} />
-        {earnedCount > 0 && (
-          <>
-            <View style={s.divider} />
-            <MenuRow
-              label="リワード"
-              value={`${earnedCount}件取得済み`}
-              onPress={() => navigation.navigate('Rewards')}
-            />
-          </>
-        )}
+        <View style={s.divider} />
+        <MenuRow
+          label="リワード"
+          value={earnedCount > 0 ? `${earnedCount}件取得済み` : '未獲得'}
+          onPress={() => navigation.navigate('Rewards')}
+        />
       </View>
 
       <Section label="アカウント" sub="ACCOUNT" />
@@ -270,7 +266,7 @@ const s = StyleSheet.create({
   card:    { backgroundColor: colors.bg.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border.subtle, overflow: 'hidden' },
   divider: { height: 1, backgroundColor: colors.border.subtle, marginHorizontal: 16 },
 
-  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
   primaryBtnText: { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
   outlineBtn:     { borderWidth: 1, borderColor: colors.neon.blue, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   outlineBtnText: { color: colors.neon.blue, fontSize: 14, fontWeight: '600' },

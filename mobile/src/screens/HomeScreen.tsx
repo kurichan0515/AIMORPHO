@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Modal, StatusBar } from 'react-native';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Modal, StatusBar, Animated } from 'react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getDailyAdvice, sendPenaltyAnswer,
   getMealSuggestion, getExerciseSuggestion, getAiUsage,
@@ -14,6 +14,8 @@ import { colors } from '../theme/colors';
 import AvatarSilhouette from '../components/ui/AvatarSilhouette';
 import { BellIcon, WorkoutsIcon, CheckCircleIcon, BulbIcon, MealIcon, SparkleIcon } from '../components/ui/icons';
 import { useIAP } from '../hooks/useIAP';
+import StreakCelebrationModal from '../components/StreakCelebrationModal';
+import { useStreakCelebration } from '../hooks/useStreakCelebration';
 
 const isLimitError = (err: any) => err?.response?.status === 429;
 const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
@@ -21,7 +23,9 @@ const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました�
 export default function HomeScreen() {
   const { bodyState, avatarImages, gender } = useAvatarStore();
   const { purchase } = useIAP();
+  const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<'nutrition' | 'workout'>('nutrition');
+  const [hasPendingPenalty, setHasPendingPenalty] = useState(false);
   const [showInterrogation, setShowInterrogation] = useState(false);
   const [interrogationMsg, setInterrogationMsg] = useState('');
   const [mealSuggestion, setMealSuggestion] = useState<MealSuggestionResult | null>(null);
@@ -31,6 +35,9 @@ export default function HomeScreen() {
   const [recordingExercise, setRecordingExercise] = useState<string | null>(null);
   const [recordedExercises, setRecordedExercises] = useState<string[]>([]);
   const [goToGym, setGoToGym] = useState(false);
+  const streak = useStreakCelebration();
+
+  const interrogationAnim = useRef(new Animated.Value(0)).current;
 
   const { data: advice, isLoading: adviceLoading } = useQuery({
     queryKey: ['dailyAdvice'],
@@ -41,6 +48,12 @@ export default function HomeScreen() {
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: () => api.get('/users/me').then(r => r.data),
+  });
+
+  const { data: streakData } = useQuery({
+    queryKey: ['streak'],
+    queryFn: () => api.get('/users/me/streak').then(r => r.data),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: aiUsage, refetch: refetchUsage } = useQuery({
@@ -57,12 +70,25 @@ export default function HomeScreen() {
     checkPenalty();
   }, []);
 
+  // カムバック検出（3日以上未記録 = 激励バナー）
+  const daysSinceLast = streakData?.lastLoggedAt
+    ? Math.floor((Date.now() - new Date(streakData.lastLoggedAt).getTime()) / 86400000)
+    : 0;
+  const showComebackBanner = daysSinceLast >= 3;
+
+  const showInterrogationWithAnim = () => {
+    setShowInterrogation(true);
+    interrogationAnim.setValue(0);
+    Animated.timing(interrogationAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+  };
+
   const checkPenalty = async () => {
     try {
       const { data } = await api.post('/ai/penalty-event', {});
       if (data?.event === 'interrogation') {
         setInterrogationMsg(data.question);
-        setShowInterrogation(true);
+        setHasPendingPenalty(true);
+        showInterrogationWithAnim();
       }
     } catch {}
   };
@@ -71,6 +97,7 @@ export default function HomeScreen() {
     mutationFn: (answer: 'YES' | 'NO') => sendPenaltyAnswer(answer),
     onSuccess: (data) => {
       setShowInterrogation(false);
+      setHasPendingPenalty(false);
       if (data.newBodyState !== undefined) {
         useAvatarStore.getState().setBodyState(data.newBodyState);
       }
@@ -113,18 +140,27 @@ export default function HomeScreen() {
     onSuccess: (data, item) => {
       setRecordingExercise(null);
       setRecordedExercises(prev => [...prev, item.name]);
-      if (data.newBadges?.length) {
-        Alert.alert('バッジ獲得！', data.newBadges.map((b: any) => b.name).join('、'));
+      qc.invalidateQueries({ queryKey: ['streak'] });
+      streak.trigger(data);
+      const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
+      if (nonStreakBadges.length) {
+        Alert.alert('バッジ獲得！', nonStreakBadges.map((b: any) => b.name).join('、'));
       }
       if (data.recovered) {
         Alert.alert('体型回復！', 'アバターの体型が改善しました');
       }
-      if (!data.newBadges?.length && !data.recovered) {
+      if (!nonStreakBadges.length && !data.recovered && !data.streakInfo?.streakMilestone) {
         Alert.alert('記録完了', `${item.name} を記録しました`);
       }
     },
     onError: () => { setRecordingExercise(null); Alert.alert('エラー', '記録に失敗しました'); },
   });
+
+  const toggleGym = async () => {
+    const newVal = !goToGym;
+    setGoToGym(newVal);
+    try { await api.patch('/users/me', { hasGym: newVal }); } catch {}
+  };
 
   const currentAvatarUrl = avatarImages[bodyState];
   const defaultAvatar = getDefaultAvatars(gender)[bodyState];
@@ -133,252 +169,295 @@ export default function HomeScreen() {
     ? (profile.weightKg / Math.pow(profile.heightCm / 100, 2)).toFixed(1)
     : null;
 
+  const streakDays = streakData?.currentDays ?? 0;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <StatusBar barStyle="light-content" />
+    <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        <StatusBar barStyle="light-content" />
 
-      {/* ヘッダー */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {currentAvatarUrl ? (
-            <Image source={{ uri: currentAvatarUrl }} style={styles.profilePhoto} />
+        {/* ヘッダー */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {currentAvatarUrl ? (
+              <Image source={{ uri: currentAvatarUrl }} style={styles.profilePhoto} />
+            ) : (
+              <View style={styles.profilePhotoPlaceholder} />
+            )}
+            <View>
+              {profile?.displayName ? (
+                <Text style={styles.journeyName}>{profile.displayName}</Text>
+              ) : null}
+              <Text style={styles.journeyGoal}>状態: {DEFAULT_AVATAR_LABELS[bodyState]}</Text>
+            </View>
+          </View>
+          <View style={styles.bellWrapper}>
+            <BellIcon color={hasPendingPenalty ? colors.neon.orange : colors.text.secondary} size={24} />
+            {hasPendingPenalty && <View style={styles.bellBadge} />}
+          </View>
+        </View>
+
+        {/* ストリークバナー */}
+        <View style={styles.streakRow}>
+          {showComebackBanner ? (
+            <View style={styles.streakBanner}>
+              <Text style={styles.streakFire}>💪</Text>
+              <Text style={styles.streakBannerText}>また記録しよう！最高記録: {streakData?.longestDays ?? 0}日</Text>
+            </View>
           ) : (
-            <View style={styles.profilePhotoPlaceholder} />
+            <View style={[styles.streakBanner, streakDays >= 3 && styles.streakBannerActive]}>
+              <Text style={styles.streakFire}>🔥</Text>
+              <Text style={[styles.streakDays, streakDays >= 3 && { color: colors.neon.orange }]}>{streakDays}</Text>
+              <Text style={styles.streakLabel}>日連続</Text>
+              {streakData?.longestDays > 0 && streakDays < streakData.longestDays && (
+                <Text style={styles.streakBest}>最高 {streakData.longestDays}日</Text>
+              )}
+            </View>
           )}
-          <View>
-            <Text style={styles.journeyGoal}>状態: {DEFAULT_AVATAR_LABELS[bodyState]}</Text>
-          </View>
         </View>
-        <BellIcon color={colors.text.secondary} size={24} />
-      </View>
 
-      {/* アバタービジュアル */}
-      <View style={styles.avatarSection}>
-        {currentAvatarUrl ? (
-          <>
-            <AvatarSilhouette width={170} height={230} style={styles.avatarSilhouette} />
-            <Image source={{ uri: currentAvatarUrl }} style={styles.avatarOverlayImage} resizeMode="contain" />
-          </>
-        ) : (
-          <View style={[styles.defaultAvatarCircle, { backgroundColor: defaultAvatar.backgroundColor }]}>
-            <Text style={styles.defaultAvatarEmoji}>{defaultAvatar.emoji}</Text>
-          </View>
-        )}
-        {bmi && (
-          <View style={[styles.dataLabel, styles.dataLabelBlue, styles.dataLabelTopRight]}>
-            <Text style={[styles.dataLabelText, { color: colors.neon.blue }]}>BMI {bmi}</Text>
-          </View>
-        )}
-        {profile?.bodyFatPct != null && (
-          <View style={[styles.dataLabel, styles.dataLabelOrange, styles.dataLabelMidLeft]}>
-            <Text style={[styles.dataLabelText, { color: colors.neon.orange }]}>体脂肪率 {profile.bodyFatPct}%</Text>
-          </View>
-        )}
-        {profile?.weightKg != null && (
-          <View style={[styles.dataLabel, styles.dataLabelBlue, styles.dataLabelBottomCenter]}>
-            <Text style={[styles.dataLabelText, { color: colors.neon.blue }]}>体重 {profile.weightKg}kg</Text>
-          </View>
-        )}
-      </View>
-
-      {/* ジャーニーチェック */}
-      {showInterrogation && (
-        <View style={styles.interrogation}>
-          <Text style={styles.interrogationText}>{interrogationMsg}</Text>
-          <View style={styles.interrogationButtons}>
-            <TouchableOpacity style={[styles.btn, styles.btnYes]} onPress={() => penaltyMutation.mutate('YES')}>
-              <Text style={styles.btnText}>やってた！</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, styles.btnNo]} onPress={() => penaltyMutation.mutate('NO')}>
-              <Text style={styles.btnText}>サボってた…</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* プレミアム訴求バナー（フリーユーザーのみ） */}
-      {aiUsage && !aiUsage.premium && (
-        <TouchableOpacity style={styles.premiumBanner} onPress={purchase}>
-          <View style={styles.premiumBannerInner}>
-            <Text style={styles.premiumBannerIcon}>👑</Text>
-            <View style={styles.premiumBannerText}>
-              <Text style={styles.premiumBannerTitle}>プレミアムで制限なし</Text>
-              <Text style={styles.premiumBannerSub}>AI提案・食事解析が無制限に</Text>
+        {/* アバタービジュアル */}
+        <View style={styles.avatarSection}>
+          {currentAvatarUrl ? (
+            <>
+              <AvatarSilhouette width={170} height={230} style={styles.avatarSilhouette} />
+              <Image source={{ uri: currentAvatarUrl }} style={styles.avatarOverlayImage} resizeMode="contain" />
+            </>
+          ) : (
+            <View style={[styles.defaultAvatarCircle, { backgroundColor: defaultAvatar.backgroundColor }]}>
+              <Text style={styles.defaultAvatarEmoji}>{defaultAvatar.emoji}</Text>
             </View>
-            <Text style={styles.premiumBannerArrow}>›</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
-      {/* AI Advisor */}
-      <View style={styles.advisorCard}>
-        <View style={styles.geminiLabelRow}>
-          <SparkleIcon color={colors.neon.blue} size={12} />
-          <Text style={styles.geminiLabel}>AIアドバイザー</Text>
+          )}
+          {bmi && (
+            <View style={[styles.dataLabel, styles.dataLabelBlue, styles.dataLabelTopRight]}>
+              <Text style={[styles.dataLabelText, { color: colors.neon.blue }]}>BMI {bmi}</Text>
+            </View>
+          )}
+          {profile?.bodyFatPct != null && (
+            <View style={[styles.dataLabel, styles.dataLabelOrange, styles.dataLabelMidLeft]}>
+              <Text style={[styles.dataLabelText, { color: colors.neon.orange }]}>体脂肪率 {profile.bodyFatPct}%</Text>
+            </View>
+          )}
+          {profile?.weightKg != null && (
+            <View style={[styles.dataLabel, styles.dataLabelBlue, styles.dataLabelBottomCenter]}>
+              <Text style={[styles.dataLabelText, { color: colors.neon.blue }]}>体重 {profile.weightKg}kg</Text>
+            </View>
+          )}
         </View>
 
-        {adviceLoading ? (
-          <ActivityIndicator color={colors.neon.blue} />
-        ) : (
-          <Text style={styles.adviceGreeting}>{advice?.greeting}</Text>
+        {/* ジャーニーチェック */}
+        {showInterrogation && (
+          <Animated.View style={[styles.interrogation, { opacity: interrogationAnim }]}>
+            <Text style={styles.interrogationText}>{interrogationMsg}</Text>
+            <View style={styles.interrogationButtons}>
+              <TouchableOpacity style={[styles.btn, styles.btnYes]} onPress={() => penaltyMutation.mutate('YES')}>
+                <Text style={styles.btnText}>やってた！</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, styles.btnNo]} onPress={() => penaltyMutation.mutate('NO')}>
+                <Text style={styles.btnText}>サボってた…</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
         )}
 
-        <View style={styles.tabRow}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'nutrition' ? styles.tabActive : styles.tabInactive]}
-            onPress={() => setActiveTab('nutrition')}
-          >
-            <Text style={[styles.tabText, activeTab === 'nutrition' ? styles.tabTextActive : styles.tabTextInactive]}>食事</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'workout' ? styles.tabActive : styles.tabInactive]}
-            onPress={() => setActiveTab('workout')}
-          >
-            <Text style={[styles.tabText, activeTab === 'workout' ? styles.tabTextActive : styles.tabTextInactive]}>トレーニング</Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'nutrition' ? (
-          <>
-            <View style={styles.infoRow}>
-              <CheckCircleIcon color={colors.neon.green} size={18} />
-              <Text style={styles.infoRowText}>食事分析: {advice?.meal_advice}</Text>
-            </View>
-            {aiUsage && !aiUsage.premium && aiUsage.limits && (
-              <Text style={styles.usageBadge}>
-                本日残り {Math.max(0, aiUsage.limits.mealSuggestion - aiUsage.usage.mealSuggestion)}/{aiUsage.limits.mealSuggestion} 回
-              </Text>
-            )}
-            <TouchableOpacity
-              style={[styles.primaryBtn, styles.fullWidthBtn]}
-              onPress={() => mealSuggestionMutation.mutate()}
-              disabled={mealSuggestionMutation.isPending}
-            >
-              {mealSuggestionMutation.isPending
-                ? <ActivityIndicator color={colors.bg.primary} size="small" />
-                : (
-                  <View style={styles.btnContentRow}>
-                    <MealIcon color={colors.bg.primary} size={16} />
-                    <Text style={styles.primaryBtnText}>食事提案をもらう</Text>
-                  </View>
-                )
-              }
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <View style={styles.infoRow}>
-              <BulbIcon color={colors.neon.yellow} size={18} />
-              <Text style={styles.infoRowText}>今日のアドバイス: {advice?.exercise_advice}</Text>
-            </View>
-            <TouchableOpacity style={styles.gymCheckRow} onPress={() => setGoToGym(v => !v)}>
-              <View style={[styles.checkboxBox, goToGym && styles.checkboxBoxChecked]}>
-                {goToGym && <Text style={styles.checkboxMark}>✓</Text>}
+        {/* プレミアム訴求バナー（フリーユーザーのみ） */}
+        {aiUsage && !aiUsage.premium && (
+          <TouchableOpacity style={styles.premiumBanner} onPress={purchase}>
+            <View style={styles.premiumBannerInner}>
+              <Text style={styles.premiumBannerIcon}>👑</Text>
+              <View style={styles.premiumBannerText}>
+                <Text style={styles.premiumBannerTitle}>プレミアムで制限なし</Text>
+                <Text style={styles.premiumBannerSub}>AI提案・食事解析が無制限に</Text>
               </View>
-              <Text style={styles.checkboxLabel}>ジムに行く</Text>
-            </TouchableOpacity>
-            {aiUsage && !aiUsage.premium && aiUsage.limits && (
-              <Text style={styles.usageBadge}>
-                本日残り {Math.max(0, aiUsage.limits.exerciseSuggestion - aiUsage.usage.exerciseSuggestion)}/{aiUsage.limits.exerciseSuggestion} 回
-              </Text>
-            )}
-            <TouchableOpacity
-              style={[styles.primaryBtn, styles.fullWidthBtn]}
-              onPress={() => exerciseSuggestionMutation.mutate(goToGym)}
-              disabled={exerciseSuggestionMutation.isPending || profileLoading}
-            >
-              {exerciseSuggestionMutation.isPending
-                ? <ActivityIndicator color={colors.bg.primary} size="small" />
-                : (
-                  <View style={styles.btnContentRow}>
-                    <WorkoutsIcon color={colors.bg.primary} size={16} />
-                    <Text style={styles.primaryBtnText}>トレーニング提案</Text>
-                  </View>
-                )
-              }
-            </TouchableOpacity>
-          </>
+              <Text style={styles.premiumBannerArrow}>›</Text>
+            </View>
+          </TouchableOpacity>
         )}
 
-        <Text style={styles.aiDisclaimer}>
-          ※ 本アドバイスはAIによる参考情報です。医療・診断行為ではありません。
-        </Text>
-      </View>
-
-      {/* 食事提案モーダル */}
-      <Modal visible={showMealModal} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalTitleRow}>
-              <MealIcon color={colors.text.primary} size={20} />
-              <Text style={styles.modalTitle}>食事提案</Text>
-            </View>
-            <TouchableOpacity onPress={() => setShowMealModal(false)}>
-              <Text style={styles.modalClose}>閉じる</Text>
-            </TouchableOpacity>
+        {/* AI Advisor */}
+        <View style={styles.advisorCard}>
+          <View style={styles.geminiLabelRow}>
+            <SparkleIcon color={colors.neon.blue} size={12} />
+            <Text style={styles.geminiLabel}>AIアドバイザー</Text>
           </View>
-          {mealSuggestion && (
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.mealSuggestionComment}>{mealSuggestion.suggestion}</Text>
-              {mealSuggestion.meals.map((m, i) => (
-                <View key={i} style={styles.mealItemCard}>
-                  <View style={styles.mealItemHeader}>
-                    <Text style={styles.mealItemName}>{m.name}</Text>
-                    <Text style={styles.mealItemKcal}>{m.kcal}kcal</Text>
-                  </View>
-                  <Text style={styles.mealItemMacro}>P:{m.protein_g}g / F:{m.fat_g}g / C:{m.carb_g}g</Text>
-                  <Text style={styles.mealItemReason}>{m.reason}</Text>
-                </View>
-              ))}
-            </ScrollView>
+
+          {adviceLoading ? (
+            <View style={styles.skeletonBlock}>
+              <View style={[styles.skeletonLine, { width: '90%' }]} />
+              <View style={[styles.skeletonLine, { width: '70%', marginTop: 6 }]} />
+            </View>
+          ) : (
+            <Text style={styles.adviceGreeting}>{advice?.greeting}</Text>
           )}
-        </View>
-      </Modal>
 
-      {/* トレーニング提案モーダル */}
-      <Modal visible={showExerciseModal} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalTitleRow}>
-              <WorkoutsIcon color={colors.text.primary} size={20} />
-              <Text style={styles.modalTitle}>トレーニング提案</Text>
-            </View>
-            <TouchableOpacity onPress={() => setShowExerciseModal(false)}>
-              <Text style={styles.modalClose}>閉じる</Text>
+          <View style={styles.tabRow}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'nutrition' ? styles.tabActive : styles.tabInactive]}
+              onPress={() => setActiveTab('nutrition')}
+            >
+              <Text style={[styles.tabText, activeTab === 'nutrition' ? styles.tabTextActive : styles.tabTextInactive]}>食事</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'workout' ? styles.tabActive : styles.tabInactive]}
+              onPress={() => setActiveTab('workout')}
+            >
+              <Text style={[styles.tabText, activeTab === 'workout' ? styles.tabTextActive : styles.tabTextInactive]}>トレーニング</Text>
             </TouchableOpacity>
           </View>
-          {exerciseSuggestion && (
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.mealSuggestionComment}>{exerciseSuggestion.summary}</Text>
-              {exerciseSuggestion.exercises.map((e, i) => (
-                <View key={i} style={styles.exerciseItemCard}>
-                  <View style={styles.exerciseItemHeader}>
-                    <View>
-                      <Text style={styles.exerciseItemName}>{e.name}</Text>
-                      <Text style={styles.exerciseItemSets}>{e.sets} / 推定{e.kcal_estimate}kcal</Text>
-                      <Text style={styles.exerciseItemMuscle}>{e.muscle_groups.join(' / ')}</Text>
+
+          {activeTab === 'nutrition' ? (
+            <>
+              <View style={styles.infoRow}>
+                <CheckCircleIcon color={colors.neon.green} size={18} />
+                <Text style={styles.infoRowText}>食事分析: {advice?.meal_advice}</Text>
+              </View>
+              {aiUsage && !aiUsage.premium && aiUsage.limits && (
+                <Text style={styles.usageBadge}>
+                  本日残り {Math.max(0, aiUsage.limits.mealSuggestion - aiUsage.usage.mealSuggestion)}/{aiUsage.limits.mealSuggestion} 回
+                </Text>
+              )}
+              <TouchableOpacity
+                style={[styles.primaryBtn, styles.fullWidthBtn, mealSuggestionMutation.isPending && styles.primaryBtnDisabled]}
+                onPress={() => mealSuggestionMutation.mutate()}
+                disabled={mealSuggestionMutation.isPending}
+              >
+                {mealSuggestionMutation.isPending
+                  ? <ActivityIndicator color={colors.bg.primary} size="small" />
+                  : (
+                    <View style={styles.btnContentRow}>
+                      <MealIcon color={colors.bg.primary} size={16} />
+                      <Text style={styles.primaryBtnText}>食事提案をもらう</Text>
                     </View>
-                    <TouchableOpacity
-                      style={[styles.recordBtn, (recordingExercise === e.name || recordedExercises.includes(e.name)) && styles.recordBtnDone]}
-                      onPress={() => {
-                        setRecordingExercise(e.name);
-                        recordExerciseMutation.mutate(e);
-                      }}
-                      disabled={recordExerciseMutation.isPending || recordedExercises.includes(e.name)}
-                    >
-                      <Text style={styles.recordBtnText}>
-                        {recordedExercises.includes(e.name) ? '記録済み' : recordingExercise === e.name ? '記録中...' : '記録する'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.exerciseItemReason}>{e.reason}</Text>
+                  )
+                }
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.infoRow}>
+                <BulbIcon color={colors.neon.yellow} size={18} />
+                <Text style={styles.infoRowText}>今日のアドバイス: {advice?.exercise_advice}</Text>
+              </View>
+              <TouchableOpacity style={styles.gymCheckRow} onPress={toggleGym}>
+                <View style={[styles.checkboxBox, goToGym && styles.checkboxBoxChecked]}>
+                  {goToGym && <Text style={styles.checkboxMark}>✓</Text>}
                 </View>
-              ))}
-            </ScrollView>
+                <Text style={styles.checkboxLabel}>ジムに行く</Text>
+              </TouchableOpacity>
+              {aiUsage && !aiUsage.premium && aiUsage.limits && (
+                <Text style={styles.usageBadge}>
+                  本日残り {Math.max(0, aiUsage.limits.exerciseSuggestion - aiUsage.usage.exerciseSuggestion)}/{aiUsage.limits.exerciseSuggestion} 回
+                </Text>
+              )}
+              <TouchableOpacity
+                style={[styles.primaryBtn, styles.fullWidthBtn, (exerciseSuggestionMutation.isPending || profileLoading) && styles.primaryBtnDisabled]}
+                onPress={() => exerciseSuggestionMutation.mutate(goToGym)}
+                disabled={exerciseSuggestionMutation.isPending || profileLoading}
+              >
+                {exerciseSuggestionMutation.isPending
+                  ? <ActivityIndicator color={colors.bg.primary} size="small" />
+                  : (
+                    <View style={styles.btnContentRow}>
+                      <WorkoutsIcon color={colors.bg.primary} size={16} />
+                      <Text style={styles.primaryBtnText}>トレーニング提案</Text>
+                    </View>
+                  )
+                }
+              </TouchableOpacity>
+            </>
           )}
+
+          <Text style={styles.aiDisclaimer}>
+            ※ 本アドバイスはAIによる参考情報です。医療・診断行為ではありません。
+          </Text>
         </View>
-      </Modal>
-    </ScrollView>
+
+        {/* 食事提案モーダル */}
+        <Modal visible={showMealModal} animationType="slide" presentationStyle="pageSheet">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <MealIcon color={colors.text.primary} size={20} />
+                <Text style={styles.modalTitle}>食事提案</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowMealModal(false)}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {mealSuggestion && (
+              <ScrollView style={styles.modalBody}>
+                <Text style={styles.mealSuggestionComment}>{mealSuggestion.suggestion}</Text>
+                {mealSuggestion.meals.map((m, i) => (
+                  <View key={i} style={styles.mealItemCard}>
+                    <View style={styles.mealItemHeader}>
+                      <Text style={styles.mealItemName}>{m.name}</Text>
+                      <Text style={styles.mealItemKcal}>{m.kcal}kcal</Text>
+                    </View>
+                    <Text style={styles.mealItemMacro}>P:{m.protein_g}g / F:{m.fat_g}g / C:{m.carb_g}g</Text>
+                    <Text style={styles.mealItemReason}>{m.reason}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </Modal>
+
+        {/* トレーニング提案モーダル */}
+        <Modal visible={showExerciseModal} animationType="slide" presentationStyle="pageSheet">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <WorkoutsIcon color={colors.text.primary} size={20} />
+                <Text style={styles.modalTitle}>トレーニング提案</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowExerciseModal(false)}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {exerciseSuggestion && (
+              <ScrollView style={styles.modalBody}>
+                <Text style={styles.mealSuggestionComment}>{exerciseSuggestion.summary}</Text>
+                {exerciseSuggestion.exercises.map((e, i) => (
+                  <View key={i} style={styles.exerciseItemCard}>
+                    <View style={styles.exerciseItemHeader}>
+                      <View>
+                        <Text style={styles.exerciseItemName}>{e.name}</Text>
+                        <Text style={styles.exerciseItemSets}>{e.sets} / 推定{e.kcal_estimate}kcal</Text>
+                        <Text style={styles.exerciseItemMuscle}>{e.muscle_groups.join(' / ')}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.recordBtn, (recordingExercise === e.name || recordedExercises.includes(e.name)) && styles.recordBtnDone]}
+                        onPress={() => {
+                          setRecordingExercise(e.name);
+                          recordExerciseMutation.mutate(e);
+                        }}
+                        disabled={recordExerciseMutation.isPending || recordedExercises.includes(e.name)}
+                      >
+                        <Text style={styles.recordBtnText}>
+                          {recordedExercises.includes(e.name) ? '記録済み' : recordingExercise === e.name ? '記録中...' : '記録する'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.exerciseItemReason}>{e.reason}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </Modal>
+      </ScrollView>
+
+      {/* ストリーク祝福モーダル */}
+      {streak.celebration && (
+        <StreakCelebrationModal
+          visible={streak.visible}
+          streakDays={streak.celebration.days}
+          badgeName={streak.celebration.badgeName}
+          isComeback={streak.celebration.isComeback}
+          onDismiss={streak.dismiss}
+        />
+      )}
+    </View>
   );
 }
 
@@ -386,12 +465,23 @@ const styles = StyleSheet.create({
   container:              { flex: 1, backgroundColor: colors.bg.primary },
   contentContainer:       { paddingBottom: 32 },
 
-  header:                 { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
+  header:                 { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 },
   headerLeft:             { flexDirection: 'row', alignItems: 'center', gap: 12 },
   profilePhoto:           { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.bg.card },
   profilePhotoPlaceholder:{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.neon.blue },
-  journeyTitle:           { fontSize: 15, fontWeight: '700', color: colors.text.primary },
-  journeyGoal:            { fontSize: 12, fontWeight: '600', color: colors.neon.orange, marginTop: 2 },
+  journeyName:            { fontSize: 14, fontWeight: '700', color: colors.text.primary },
+  journeyGoal:            { fontSize: 11, fontWeight: '600', color: colors.neon.orange, marginTop: 1 },
+  bellWrapper:            { position: 'relative' },
+  bellBadge:              { position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger },
+
+  streakRow:              { paddingHorizontal: 20, marginBottom: 8 },
+  streakBanner:           { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.bg.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: colors.border.subtle },
+  streakBannerActive:     { borderColor: colors.neon.orange },
+  streakFire:             { fontSize: 18 },
+  streakDays:             { fontSize: 22, fontWeight: '800', color: colors.text.secondary },
+  streakLabel:            { fontSize: 13, color: colors.text.secondary, fontWeight: '600' },
+  streakBest:             { fontSize: 11, color: colors.text.muted, marginLeft: 8 },
+  streakBannerText:       { flex: 1, fontSize: 13, color: colors.text.secondary },
 
   avatarSection:          { height: 260, backgroundColor: colors.bg.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarSilhouette:       { marginTop: 20 },
@@ -420,6 +510,9 @@ const styles = StyleSheet.create({
   adviceGreeting:         { fontSize: 15, fontWeight: '700', color: colors.text.primary, marginBottom: 14 },
   aiDisclaimer:           { fontSize: 10, color: colors.text.secondary, marginTop: 12, lineHeight: 14 },
 
+  skeletonBlock:          { marginBottom: 14 },
+  skeletonLine:           { height: 14, borderRadius: 7, backgroundColor: colors.bg.cardAlt },
+
   tabRow:                 { flexDirection: 'row', gap: 8, marginBottom: 14 },
   tab:                    { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1 },
   tabActive:              { backgroundColor: 'rgba(47,200,255,0.18)', borderColor: colors.neon.blue },
@@ -428,13 +521,11 @@ const styles = StyleSheet.create({
   tabTextActive:          { color: colors.neon.blue },
   tabTextInactive:        { color: colors.text.muted },
 
-  mealPhoto:              { height: 110, borderRadius: 12, backgroundColor: colors.bg.cardAlt, marginBottom: 8 },
-  mealPhotoLabel:         { fontSize: 11, fontWeight: '600', color: colors.text.secondary, marginBottom: 12 },
-
   infoRow:                { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 14 },
   infoRowText:            { flex: 1, fontSize: 12, color: colors.text.primary, lineHeight: 18 },
 
-  primaryBtn:             { borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 48, backgroundColor: colors.neon.blue, shadowColor: colors.neon.blue, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  primaryBtn:             { borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: colors.neon.blue, shadowColor: colors.neon.blue, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  primaryBtnDisabled:     { opacity: 0.6 },
   fullWidthBtn:           { alignSelf: 'stretch' },
   primaryBtnText:         { color: colors.bg.primary, fontWeight: '700', fontSize: 14 },
   btnContentRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -457,7 +548,8 @@ const styles = StyleSheet.create({
   modalHeader:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: colors.bg.card, borderBottomWidth: 1, borderBottomColor: colors.border.subtle },
   modalTitleRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modalTitle:             { fontSize: 18, fontWeight: 'bold', color: colors.text.primary },
-  modalClose:             { fontSize: 15, color: colors.neon.blue },
+  modalCloseBtn:          { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.bg.cardAlt, alignItems: 'center', justifyContent: 'center' },
+  modalCloseBtnText:      { fontSize: 16, color: colors.text.secondary, lineHeight: 20 },
   modalBody:              { padding: 16 },
   mealSuggestionComment:  { fontSize: 15, color: colors.text.secondary, marginBottom: 16, lineHeight: 22 },
   mealItemCard:           { backgroundColor: colors.bg.card, borderRadius: 12, padding: 14, marginBottom: 10 },

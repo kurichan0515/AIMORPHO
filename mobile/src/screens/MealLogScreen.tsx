@@ -2,12 +2,16 @@ import React, { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, TextInput, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHistory } from '../api/logs';
 import { getAiUsage } from '../api/ai';
 import api from '../api/client';
 import { colors } from '../theme/colors';
 import PremiumGateModal from '../components/PremiumGateModal';
+import Toast from '../components/Toast';
+import StreakCelebrationModal from '../components/StreakCelebrationModal';
+import { useStreakCelebration } from '../hooks/useStreakCelebration';
+import { useToast } from '../hooks/useToast';
 
 interface MealResult {
   menu_name: string;
@@ -43,7 +47,6 @@ const MOCK_MEAL_HISTORY = [
   { SK: 'mock-9', menuName: 'サーモン丼',               kcal: 560, proteinG: 32, fatG: 14, carbG: 70, recordedAt: '2026-06-12T12:00:00' },
 ];
 
-// 日別カロリー集計
 function buildDailyKcal(items: any[]): { date: string; kcal: number }[] {
   const map: Record<string, number> = {};
   items.forEach(item => {
@@ -58,9 +61,9 @@ function buildDailyKcal(items: any[]): { date: string; kcal: number }[] {
 }
 
 const CHART_W = 320;
-const CHART_H = 120;
-const BAR_AREA_H = 88;
-const BAR_BOTTOM = CHART_H - 20;
+const CHART_H = 160;
+const BAR_AREA_H = 120;
+const BAR_BOTTOM = CHART_H - 26;
 
 function DailyKcalChart({ items, isMock }: { items: any[]; isMock: boolean }) {
   const daily = buildDailyKcal(items);
@@ -71,7 +74,11 @@ function DailyKcalChart({ items, isMock }: { items: any[]; isMock: boolean }) {
 
   return (
     <View style={styles.chartCard}>
-      {isMock && <Text style={styles.mockLabel}>サンプルデータ</Text>}
+      {isMock && (
+        <View style={styles.mockBanner}>
+          <Text style={styles.mockBannerText}>食事を記録するとここにグラフが表示されます</Text>
+        </View>
+      )}
       <Svg width={CHART_W} height={CHART_H}>
         {daily.map((d, i) => {
           const barH = Math.max(4, (d.kcal / maxKcal) * BAR_AREA_H);
@@ -84,17 +91,17 @@ function DailyKcalChart({ items, isMock }: { items: any[]; isMock: boolean }) {
                 width={barW} height={barH}
                 rx={3}
                 fill={isMock ? colors.text.muted : colors.neon.orange}
-                opacity={isMock ? 0.5 : 0.85}
+                opacity={isMock ? 0.4 : 0.85}
               />
               <SvgText
-                x={x + barW / 2} y={BAR_BOTTOM + 14}
+                x={x + barW / 2} y={BAR_BOTTOM + 16}
                 fontSize={9} fill={colors.text.muted}
                 textAnchor="middle"
               >
                 {d.date.slice(5)}
               </SvgText>
               <SvgText
-                x={x + barW / 2} y={y - 3}
+                x={x + barW / 2} y={y - 4}
                 fontSize={9} fill={isMock ? colors.text.muted : colors.neon.orange}
                 textAnchor="middle"
               >
@@ -118,6 +125,9 @@ export default function MealLogScreen() {
   const [editingKcal, setEditingKcal] = useState(false);
   const [editedKcal, setEditedKcal] = useState('');
   const [premiumModal, setPremiumModal] = useState<{ visible: boolean; title: string; desc: string }>({ visible: false, title: '', desc: '' });
+  const { toastVisible, toastMessage, showToast, hideToast } = useToast();
+  const streak = useStreakCelebration();
+  const qc = useQueryClient();
 
   const showPremiumModal = (title: string, desc: string) => setPremiumModal({ visible: true, title, desc });
 
@@ -172,12 +182,14 @@ export default function MealLogScreen() {
         geminiRaw: result.geminiRaw,
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setResult(null);
       setImageUri(null);
       setEditingKcal(false);
       refetch();
-      Alert.alert('登録しました');
+      qc.invalidateQueries({ queryKey: ['streak'] });
+      streak.trigger(data);
+      showToast('食事を記録しました');
     },
     onError: (err: any) => {
       if (isLimitError(err)) {
@@ -196,11 +208,13 @@ export default function MealLogScreen() {
       fatG: parseFloat(manual.fat_g) || 0,
       carbG: parseFloat(manual.carb_g) || 0,
     }).then(r => r.data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setManualMode(false);
       setManual({ menu_name: '', kcal: '', protein_g: '', fat_g: '', carb_g: '' });
       refetch();
-      Alert.alert('保存しました');
+      qc.invalidateQueries({ queryKey: ['streak'] });
+      streak.trigger(data);
+      showToast('食事を記録しました');
     },
     onError: (err: any) => {
       if (isLimitError(err)) {
@@ -244,166 +258,182 @@ export default function MealLogScreen() {
   const mf = (key: keyof ManualForm, val: string) => setManual(p => ({ ...p, [key]: val }));
 
   return (
-    <ScrollView ref={scrollRef} style={styles.container}>
-      {aiUsage && !aiUsage.premium && aiUsage.limits && (
-        <Text style={styles.usageBadge}>
-          AI解析 本日残り {Math.max(0, aiUsage.limits.mealAnalysis - aiUsage.usage.mealAnalysis)}/{aiUsage.limits.mealAnalysis} 回
-        </Text>
-      )}
-      <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.preview} />
-        ) : (
-          <Text style={styles.cameraBtnText}>+ 食事を撮影/選択</Text>
-        )}
-      </TouchableOpacity>
-
-      {analyzeMutation.isPending && <ActivityIndicator style={{ marginVertical: 16 }} color={colors.neon.blue} />}
-
-      {result && !result.error && (
-        <View style={styles.resultCard}>
-          <Text style={styles.resultTitle}>{result.menu_name}</Text>
-          <View style={styles.macroRow}>
-            <MacroItem label="カロリー" value={editingKcal ? `${editedKcal || 0}kcal` : `${result.kcal}kcal`} />
-            <MacroItem label="たんぱく質" value={`${result.protein_g}g`} />
-            <MacroItem label="脂質" value={`${result.fat_g}g`} />
-            <MacroItem label="糖質" value={`${result.carb_g}g`} />
-          </View>
-          {result.confidence !== 'high' && (
-            <Text style={styles.confidenceWarning}>精度: {result.confidence} — 数値を確認してください</Text>
-          )}
-
-          {editingKcal ? (
-            <View style={styles.kcalEditRow}>
-              <View style={styles.manualInputWrapper}>
-                <TextInput
-                  style={styles.manualInputInner}
-                  keyboardType="number-pad"
-                  value={editedKcal}
-                  onChangeText={setEditedKcal}
-                  placeholder="kcal"
-                  placeholderTextColor={colors.text.muted}
-                />
-                <Text style={styles.manualUnit}>kcal</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.confirmBtn}
-                disabled={confirmMutation.isPending}
-                onPress={() => {
-                  const kcal = parseInt(editedKcal, 10);
-                  if (isNaN(kcal)) { Alert.alert('エラー', 'カロリーを入力してください'); return; }
-                  confirmMutation.mutate({ kcal });
-                }}
-              >
-                <Text style={styles.confirmBtnText}>{confirmMutation.isPending ? '登録中...' : 'この内容で登録'}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.resultActions}>
-              <TouchableOpacity
-                style={styles.confirmBtn}
-                disabled={confirmMutation.isPending}
-                onPress={() => confirmMutation.mutate({ kcal: result.kcal })}
-              >
-                <Text style={styles.confirmBtnText}>{confirmMutation.isPending ? '登録中...' : '登録する'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.editKcalBtn} onPress={() => setEditingKcal(true)}>
-                <Text style={styles.editKcalBtnText}>カロリーを編集して登録</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <Text style={styles.mealDisclaimer}>
-            ※ カロリー・栄養値はAI推定値です。正確な値は食品表示をご確認ください。
+    <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
+      <ScrollView ref={scrollRef} style={styles.container}>
+        {aiUsage && !aiUsage.premium && aiUsage.limits && (
+          <Text style={styles.usageBadge}>
+            AI解析 本日残り {Math.max(0, aiUsage.limits.mealAnalysis - aiUsage.usage.mealAnalysis)}/{aiUsage.limits.mealAnalysis} 回
           </Text>
-        </View>
-      )}
-
-      {/* 手動入力フォーム */}
-      {manualMode && (
-        <View style={styles.manualCard}>
-          <Text style={styles.manualTitle}>手動で入力</Text>
-          <TextInput style={styles.manualInput} placeholder="料理名（任意）" placeholderTextColor={colors.text.muted} value={manual.menu_name} onChangeText={v => mf('menu_name', v)} />
-          <View style={styles.manualRow}>
-            <View style={styles.manualHalf}>
-              <Text style={styles.manualLabel}>カロリー *</Text>
-              <View style={styles.manualInputWrapper}>
-                <TextInput style={styles.manualInputInner} keyboardType="number-pad" value={manual.kcal} onChangeText={v => mf('kcal', v)} placeholder="500" placeholderTextColor={colors.text.muted} />
-                <Text style={styles.manualUnit}>kcal</Text>
-              </View>
+        )}
+        <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={styles.preview} />
+          ) : (
+            <View style={styles.cameraBtnContent}>
+              <Text style={styles.cameraBtnIcon}>📷</Text>
+              <Text style={styles.cameraBtnText}>食事を撮影 / 選択</Text>
+              <Text style={styles.cameraBtnSub}>タップしてライブラリを開く</Text>
             </View>
-            <View style={styles.manualHalf}>
-              <Text style={styles.manualLabel}>たんぱく質</Text>
-              <View style={styles.manualInputWrapper}>
-                <TextInput style={styles.manualInputInner} keyboardType="decimal-pad" value={manual.protein_g} onChangeText={v => mf('protein_g', v)} placeholder="20" placeholderTextColor={colors.text.muted} />
-                <Text style={styles.manualUnit}>g</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.manualRow}>
-            <View style={styles.manualHalf}>
-              <Text style={styles.manualLabel}>脂質</Text>
-              <View style={styles.manualInputWrapper}>
-                <TextInput style={styles.manualInputInner} keyboardType="decimal-pad" value={manual.fat_g} onChangeText={v => mf('fat_g', v)} placeholder="15" placeholderTextColor={colors.text.muted} />
-                <Text style={styles.manualUnit}>g</Text>
-              </View>
-            </View>
-            <View style={styles.manualHalf}>
-              <Text style={styles.manualLabel}>糖質</Text>
-              <View style={styles.manualInputWrapper}>
-                <TextInput style={styles.manualInputInner} keyboardType="decimal-pad" value={manual.carb_g} onChangeText={v => mf('carb_g', v)} placeholder="60" placeholderTextColor={colors.text.muted} />
-                <Text style={styles.manualUnit}>g</Text>
-              </View>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.manualSaveBtn} onPress={submitManual} disabled={manualMutation.isPending}>
-            <Text style={styles.manualSaveBtnText}>{manualMutation.isPending ? '保存中...' : '保存する'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.manualCancelBtn} onPress={() => setManualMode(false)}>
-            <Text style={styles.manualCancelBtnText}>キャンセル</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {!manualMode && !analyzeMutation.isPending && (
-        <TouchableOpacity style={styles.manualToggleBtn} onPress={() => setManualMode(true)}>
-          <Text style={styles.manualToggleBtnText}>✏️ 手動で入力する</Text>
+          )}
         </TouchableOpacity>
+
+        {analyzeMutation.isPending && <ActivityIndicator style={{ marginVertical: 16 }} color={colors.neon.blue} />}
+
+        {result && !result.error && (
+          <View style={styles.resultCard}>
+            <Text style={styles.resultTitle}>{result.menu_name}</Text>
+            <View style={styles.macroRow}>
+              <MacroItem label="カロリー" value={editingKcal ? `${editedKcal || 0}kcal` : `${result.kcal}kcal`} />
+              <MacroItem label="たんぱく質" value={`${result.protein_g}g`} />
+              <MacroItem label="脂質" value={`${result.fat_g}g`} />
+              <MacroItem label="糖質" value={`${result.carb_g}g`} />
+            </View>
+            {result.confidence !== 'high' && (
+              <Text style={styles.confidenceWarning}>精度: {result.confidence} — 数値を確認してください</Text>
+            )}
+
+            {editingKcal ? (
+              <View style={styles.kcalEditRow}>
+                <View style={styles.manualInputWrapper}>
+                  <TextInput
+                    style={styles.manualInputInner}
+                    keyboardType="number-pad"
+                    value={editedKcal}
+                    onChangeText={setEditedKcal}
+                    placeholder="kcal"
+                    placeholderTextColor={colors.text.muted}
+                  />
+                  <Text style={styles.manualUnit}>kcal</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.confirmBtn, confirmMutation.isPending && styles.btnDisabled]}
+                  disabled={confirmMutation.isPending}
+                  onPress={() => {
+                    const kcal = parseInt(editedKcal, 10);
+                    if (isNaN(kcal)) { Alert.alert('エラー', 'カロリーを入力してください'); return; }
+                    confirmMutation.mutate({ kcal });
+                  }}
+                >
+                  <Text style={styles.confirmBtnText}>{confirmMutation.isPending ? '登録中...' : 'この内容で登録'}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.resultActions}>
+                <TouchableOpacity
+                  style={[styles.confirmBtn, confirmMutation.isPending && styles.btnDisabled]}
+                  disabled={confirmMutation.isPending}
+                  onPress={() => confirmMutation.mutate({ kcal: result.kcal })}
+                >
+                  <Text style={styles.confirmBtnText}>{confirmMutation.isPending ? '登録中...' : '登録する'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.editKcalBtn} onPress={() => setEditingKcal(true)}>
+                  <Text style={styles.editKcalBtnText}>カロリーを編集して登録</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <Text style={styles.mealDisclaimer}>
+              ※ カロリー・栄養値はAI推定値です。正確な値は食品表示をご確認ください。
+            </Text>
+          </View>
+        )}
+
+        {/* 手動入力フォーム */}
+        {manualMode && (
+          <View style={styles.manualCard}>
+            <Text style={styles.manualTitle}>手動で入力</Text>
+            <TextInput style={styles.manualInput} placeholder="料理名（任意）" placeholderTextColor={colors.text.muted} value={manual.menu_name} onChangeText={v => mf('menu_name', v)} />
+            <View style={styles.manualRow}>
+              <View style={styles.manualHalf}>
+                <Text style={styles.manualLabel}>カロリー *</Text>
+                <View style={styles.manualInputWrapper}>
+                  <TextInput style={styles.manualInputInner} keyboardType="number-pad" value={manual.kcal} onChangeText={v => mf('kcal', v)} placeholder="500" placeholderTextColor={colors.text.muted} />
+                  <Text style={styles.manualUnit}>kcal</Text>
+                </View>
+              </View>
+              <View style={styles.manualHalf}>
+                <Text style={styles.manualLabel}>たんぱく質</Text>
+                <View style={styles.manualInputWrapper}>
+                  <TextInput style={styles.manualInputInner} keyboardType="decimal-pad" value={manual.protein_g} onChangeText={v => mf('protein_g', v)} placeholder="20" placeholderTextColor={colors.text.muted} />
+                  <Text style={styles.manualUnit}>g</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.manualRow}>
+              <View style={styles.manualHalf}>
+                <Text style={styles.manualLabel}>脂質</Text>
+                <View style={styles.manualInputWrapper}>
+                  <TextInput style={styles.manualInputInner} keyboardType="decimal-pad" value={manual.fat_g} onChangeText={v => mf('fat_g', v)} placeholder="15" placeholderTextColor={colors.text.muted} />
+                  <Text style={styles.manualUnit}>g</Text>
+                </View>
+              </View>
+              <View style={styles.manualHalf}>
+                <Text style={styles.manualLabel}>糖質</Text>
+                <View style={styles.manualInputWrapper}>
+                  <TextInput style={styles.manualInputInner} keyboardType="decimal-pad" value={manual.carb_g} onChangeText={v => mf('carb_g', v)} placeholder="60" placeholderTextColor={colors.text.muted} />
+                  <Text style={styles.manualUnit}>g</Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity style={[styles.manualSaveBtn, manualMutation.isPending && styles.btnDisabled]} onPress={submitManual} disabled={manualMutation.isPending}>
+              <Text style={styles.manualSaveBtnText}>{manualMutation.isPending ? '保存中...' : '保存する'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.manualCancelBtn} onPress={() => setManualMode(false)}>
+              <Text style={styles.manualCancelBtnText}>キャンセル</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!manualMode && !analyzeMutation.isPending && (
+          <TouchableOpacity style={styles.manualToggleBtn} onPress={() => setManualMode(true)}>
+            <Text style={styles.manualToggleBtnText}>✏️ 手動で入力する</Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.sectionTitle}>日別摂取カロリー</Text>
+        <DailyKcalChart items={displayHistory} isMock={isMock} />
+
+        <Text style={styles.sectionTitle}>最近の食事記録</Text>
+        <Text style={styles.historyHint}>タップで手動入力欄にコピー</Text>
+        {displayHistory.map((item: any) => (
+          <TouchableOpacity key={item.SK} style={styles.historyItem} onPress={() => fillFromHistory(item)}>
+            <View style={styles.historyLeft}>
+              <Text style={styles.historyName}>{item.menuName || '未解析'}</Text>
+              {item.recordedAt && (
+                <Text style={styles.historyDate}>{item.recordedAt.slice(5, 10)}</Text>
+              )}
+            </View>
+            <View style={styles.historyRight}>
+              {isMock && <Text style={styles.mockTag}>サンプル</Text>}
+              <Text style={styles.historyKcal}>{item.kcal}kcal</Text>
+              {item.proteinG != null && (
+                <Text style={styles.historyMacro}>P{item.proteinG}g</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
+        <View style={{ height: 24 }} />
+
+        <PremiumGateModal
+          visible={premiumModal.visible}
+          onClose={() => setPremiumModal(p => ({ ...p, visible: false }))}
+          title={premiumModal.title}
+          description={premiumModal.desc}
+        />
+      </ScrollView>
+
+      <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
+
+      {streak.celebration && (
+        <StreakCelebrationModal
+          visible={streak.visible}
+          streakDays={streak.celebration.days}
+          badgeName={streak.celebration.badgeName}
+          isComeback={streak.celebration.isComeback}
+          onDismiss={streak.dismiss}
+        />
       )}
-
-      {/* 日別カロリーチャート */}
-      <Text style={styles.sectionTitle}>日別摂取カロリー</Text>
-      <DailyKcalChart items={displayHistory} isMock={isMock} />
-
-      {/* 食事履歴 */}
-      <Text style={styles.sectionTitle}>最近の食事記録</Text>
-      <Text style={styles.historyHint}>タップで手動入力欄にコピー</Text>
-      {displayHistory.map((item: any) => (
-        <TouchableOpacity key={item.SK} style={styles.historyItem} onPress={() => fillFromHistory(item)}>
-          <View style={styles.historyLeft}>
-            <Text style={styles.historyName}>{item.menuName || '未解析'}</Text>
-            {item.recordedAt && (
-              <Text style={styles.historyDate}>{item.recordedAt.slice(5, 10)}</Text>
-            )}
-          </View>
-          <View style={styles.historyRight}>
-            {isMock && <Text style={styles.mockTag}>サンプル</Text>}
-            <Text style={styles.historyKcal}>{item.kcal}kcal</Text>
-            {item.proteinG != null && (
-              <Text style={styles.historyMacro}>P{item.proteinG}g</Text>
-            )}
-          </View>
-        </TouchableOpacity>
-      ))}
-      <View style={{ height: 24 }} />
-
-      <PremiumGateModal
-        visible={premiumModal.visible}
-        onClose={() => setPremiumModal(p => ({ ...p, visible: false }))}
-        title={premiumModal.title}
-        description={premiumModal.desc}
-      />
-    </ScrollView>
+    </View>
   );
 }
 
@@ -417,9 +447,14 @@ const MacroItem = ({ label, value }: { label: string; value: string }) => (
 const styles = StyleSheet.create({
   container:            { flex: 1, backgroundColor: colors.bg.primary, padding: 16 },
   usageBadge:           { fontSize: 11, color: colors.text.muted, textAlign: 'right', marginBottom: 4 },
-  cameraBtn:            { height: 180, backgroundColor: colors.bg.card, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: colors.border.subtle },
-  cameraBtnText:        { fontSize: 16, color: colors.neon.blue },
+
+  cameraBtn:            { height: 180, backgroundColor: colors.bg.card, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: colors.border.subtle, borderStyle: 'dashed' },
+  cameraBtnContent:     { alignItems: 'center', gap: 6 },
+  cameraBtnIcon:        { fontSize: 36 },
+  cameraBtnText:        { fontSize: 16, color: colors.neon.blue, fontWeight: '600' },
+  cameraBtnSub:         { fontSize: 12, color: colors.text.muted },
   preview:              { width: '100%', height: '100%', borderRadius: 12 },
+
   resultCard:           { backgroundColor: colors.bg.card, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border.subtle },
   resultTitle:          { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: colors.text.primary },
   macroRow:             { flexDirection: 'row', justifyContent: 'space-around' },
@@ -430,10 +465,12 @@ const styles = StyleSheet.create({
   mealDisclaimer:       { marginTop: 12, color: colors.text.muted, fontSize: 11, lineHeight: 16 },
   resultActions:        { marginTop: 14, gap: 8 },
   kcalEditRow:          { marginTop: 14, gap: 8 },
-  confirmBtn:           { backgroundColor: colors.neon.blue, borderRadius: 10, padding: 14, alignItems: 'center' },
+  confirmBtn:           { backgroundColor: colors.neon.blue, borderRadius: 10, padding: 14, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
   confirmBtnText:       { color: colors.bg.primary, fontWeight: 'bold', fontSize: 15 },
+  btnDisabled:          { opacity: 0.6 },
   editKcalBtn:          { padding: 10, alignItems: 'center' },
   editKcalBtnText:      { color: colors.neon.blue, fontSize: 14 },
+
   manualCard:           { backgroundColor: colors.bg.card, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border.subtle },
   manualTitle:          { fontSize: 16, fontWeight: 'bold', marginBottom: 12, color: colors.text.primary },
   manualInput:          { borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 8, padding: 12, fontSize: 15, marginBottom: 10, backgroundColor: colors.bg.cardAlt, color: colors.text.primary },
@@ -443,15 +480,17 @@ const styles = StyleSheet.create({
   manualInputWrapper:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 8, paddingHorizontal: 10, height: 44, backgroundColor: colors.bg.cardAlt },
   manualInputInner:     { flex: 1, fontSize: 16, color: colors.text.primary },
   manualUnit:           { fontSize: 12, color: colors.text.secondary },
-  manualSaveBtn:        { backgroundColor: colors.neon.blue, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 },
+  manualSaveBtn:        { backgroundColor: colors.neon.blue, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8, minHeight: 50, justifyContent: 'center' },
   manualSaveBtnText:    { color: colors.bg.primary, fontWeight: 'bold', fontSize: 15 },
   manualCancelBtn:      { padding: 10, alignItems: 'center' },
   manualCancelBtnText:  { color: colors.text.secondary, fontSize: 14 },
   manualToggleBtn:      { padding: 12, alignItems: 'center', marginBottom: 12 },
   manualToggleBtnText:  { color: colors.neon.blue, fontSize: 14 },
+
   sectionTitle:         { fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 8, color: colors.text.primary },
   chartCard:            { backgroundColor: colors.bg.card, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: colors.border.subtle },
-  mockLabel:            { fontSize: 10, color: colors.text.muted, alignSelf: 'flex-end', marginBottom: 2 },
+  mockBanner:           { backgroundColor: 'rgba(106,122,150,0.15)', borderRadius: 8, padding: 10, marginBottom: 8 },
+  mockBannerText:       { fontSize: 12, color: colors.text.muted, textAlign: 'center' },
   historyHint:          { fontSize: 11, color: colors.text.muted, marginBottom: 8, marginTop: -4 },
   historyItem:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bg.card, padding: 12, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: colors.border.subtle },
   historyLeft:          { flex: 1, gap: 2 },

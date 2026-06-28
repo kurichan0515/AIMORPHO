@@ -1,12 +1,14 @@
 import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { IUserRepository } from '../../domain/user/IUserRepository';
 import { IUsageRepository } from '../../domain/usage/IUsageRepository';
+import { IStreakRepository } from '../../domain/user/IStreakRepository';
 import { IStorageService } from '../../domain/storage/IStorageService';
 import { IAiService } from '../../domain/ai/IAiService';
 import { FREE_DAILY_LIMITS, FREE_MONTHLY_MEAL_LIMIT } from '../../domain/usage/UsageLimits';
 import { isPremium } from '../../domain/user/User';
 import { MealLog } from '../../domain/meal/MealLog';
 import { BadgeService } from '../../domain/badge/BadgeService';
+import { emptyStreak, updateStreak, STREAK_MILESTONES } from '../../domain/user/Streak';
 import { Result, ok, err } from '../../domain/shared/Result';
 import { UserId } from '../../domain/shared/types';
 import { toJSTDate } from '../../infrastructure/dynamodb/client';
@@ -19,6 +21,7 @@ export class MealApplicationService {
     private readonly storageSvc: IStorageService,
     private readonly aiSvc: IAiService,
     private readonly badgeSvc: BadgeService,
+    private readonly streakRepo: IStreakRepository,
   ) {}
 
   async getMealUploadUrl(userId: UserId): Promise<Result<{ uploadUrl: string; s3Key: string }>> {
@@ -75,7 +78,24 @@ export class MealApplicationService {
     const count = await this.mealRepo.count(userId);
     const newBadges = await this.badgeSvc.checkCountBadges(userId, 'meal', count);
 
-    return ok({ ...log, newBadges });
+    const firstBadge = await this.badgeSvc.award(userId, 'meal_first');
+    if (firstBadge) newBadges.push(firstBadge);
+
+    const currentStreak = await this.streakRepo.getStreak(userId) ?? emptyStreak(userId);
+    const { streak: newStreak, returnedAfterBreak } = updateStreak(currentStreak, now, toJSTDate);
+    await this.streakRepo.saveStreak(newStreak);
+
+    const streakBadges = await this.badgeSvc.checkStreakBadges(userId, newStreak.currentDays);
+    newBadges.push(...streakBadges);
+
+    if (returnedAfterBreak) {
+      const cb = await this.badgeSvc.award(userId, 'comeback');
+      if (cb) newBadges.push(cb);
+    }
+
+    const streakMilestone = STREAK_MILESTONES.includes(newStreak.currentDays) ? newStreak.currentDays : null;
+
+    return ok({ ...log, newBadges, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
   }
 
   async saveMealManual(userId: UserId, input: {
@@ -106,7 +126,24 @@ export class MealApplicationService {
     const count = await this.mealRepo.count(userId);
     const newBadges = await this.badgeSvc.checkCountBadges(userId, 'meal', count);
 
-    return ok({ ...input, recordedAt: now, newBadges });
+    const firstBadge = await this.badgeSvc.award(userId, 'meal_first');
+    if (firstBadge) newBadges.push(firstBadge);
+
+    const currentStreak = await this.streakRepo.getStreak(userId) ?? emptyStreak(userId);
+    const { streak: newStreak, returnedAfterBreak } = updateStreak(currentStreak, now, toJSTDate);
+    await this.streakRepo.saveStreak(newStreak);
+
+    const streakBadges = await this.badgeSvc.checkStreakBadges(userId, newStreak.currentDays);
+    newBadges.push(...streakBadges);
+
+    if (returnedAfterBreak) {
+      const cb = await this.badgeSvc.award(userId, 'comeback');
+      if (cb) newBadges.push(cb);
+    }
+
+    const streakMilestone = STREAK_MILESTONES.includes(newStreak.currentDays) ? newStreak.currentDays : null;
+
+    return ok({ ...input, recordedAt: now, newBadges, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
   }
 
   async getMealHistory(userId: UserId, from: string, to: string, limit: number): Promise<Result<unknown>> {
