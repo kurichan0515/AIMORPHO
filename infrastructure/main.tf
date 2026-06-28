@@ -40,8 +40,12 @@ module "iam" {
 }
 
 module "secrets" {
-  source      = "./modules/secrets"
-  environment = var.environment
+  source         = "./modules/secrets"
+  environment    = var.environment
+  jwt_secret     = var.jwt_secret
+  gemini_api_key = var.gemini_api_key
+  apple_iap      = var.apple_iap
+  google_play    = var.google_play
 }
 
 module "lambda" {
