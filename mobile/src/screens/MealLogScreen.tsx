@@ -4,6 +4,7 @@ import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHistory } from '../api/logs';
+import { getAiUsage } from '../api/ai';
 import api from '../api/client';
 import { colors } from '../theme/colors';
 import PremiumGateModal from '../components/PremiumGateModal';
@@ -121,6 +122,7 @@ export default function MealLogScreen() {
   const showPremiumModal = (title: string, desc: string) => setPremiumModal({ visible: true, title, desc });
 
   const { data: history, refetch } = useQuery({ queryKey: ['mealHistory'], queryFn: () => getMealHistory({ limit: 30 }) });
+  const { data: aiUsage, refetch: refetchUsage } = useQuery({ queryKey: ['aiUsage'], queryFn: getAiUsage, staleTime: 0 });
 
   const displayHistory: any[] = history?.length ? history : MOCK_MEAL_HISTORY;
   const isMock = !history?.length;
@@ -132,6 +134,7 @@ export default function MealLogScreen() {
       return analyzeMeal(s3Key);
     },
     onSuccess: (data) => {
+      refetchUsage();
       if (data.error === 'analysis_failed') {
         setManualMode(true);
         Alert.alert('解析失敗', '手動で入力してください');
@@ -242,6 +245,11 @@ export default function MealLogScreen() {
 
   return (
     <ScrollView ref={scrollRef} style={styles.container}>
+      {aiUsage && !aiUsage.premium && aiUsage.limits && (
+        <Text style={styles.usageBadge}>
+          AI解析 本日残り {Math.max(0, aiUsage.limits.mealAnalysis - aiUsage.usage.mealAnalysis)}/{aiUsage.limits.mealAnalysis} 回
+        </Text>
+      )}
       <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.preview} />
@@ -408,6 +416,7 @@ const MacroItem = ({ label, value }: { label: string; value: string }) => (
 
 const styles = StyleSheet.create({
   container:            { flex: 1, backgroundColor: colors.bg.primary, padding: 16 },
+  usageBadge:           { fontSize: 11, color: colors.text.muted, textAlign: 'right', marginBottom: 4 },
   cameraBtn:            { height: 180, backgroundColor: colors.bg.card, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: colors.border.subtle },
   cameraBtnText:        { fontSize: 16, color: colors.neon.blue },
   preview:              { width: '100%', height: '100%', borderRadius: 12 },

@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicat
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   getDailyAdvice, sendPenaltyAnswer,
-  getMealSuggestion, getExerciseSuggestion,
+  getMealSuggestion, getExerciseSuggestion, getAiUsage,
   MealSuggestionResult, ExerciseSuggestionResult, ExerciseSuggestionItem,
 } from '../api/ai';
 import { recordExercise } from '../api/logs';
@@ -36,9 +36,15 @@ export default function HomeScreen() {
     staleTime: 1000 * 60 * 30,
   });
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: () => api.get('/users/me').then(r => r.data),
+  });
+
+  const { data: aiUsage, refetch: refetchUsage } = useQuery({
+    queryKey: ['aiUsage'],
+    queryFn: getAiUsage,
+    staleTime: 0,
   });
 
   useEffect(() => {
@@ -72,6 +78,7 @@ export default function HomeScreen() {
   const mealSuggestionMutation = useMutation({
     mutationFn: getMealSuggestion,
     onSuccess: (data) => {
+      refetchUsage();
       if (data.error === 'parse_failed') { Alert.alert('エラー', '食事提案の生成に失敗しました。もう一度お試しください。'); return; }
       setMealSuggestion(data); setShowMealModal(true);
     },
@@ -84,6 +91,7 @@ export default function HomeScreen() {
   const exerciseSuggestionMutation = useMutation({
     mutationFn: (goGym: boolean) => getExerciseSuggestion(goGym),
     onSuccess: (data) => {
+      refetchUsage();
       if (data.error === 'parse_failed') { Alert.alert('エラー', 'トレーニング提案の生成に失敗しました。もう一度お試しください。'); return; }
       setExerciseSuggestion(data); setShowExerciseModal(true); setRecordedExercises([]);
     },
@@ -222,6 +230,11 @@ export default function HomeScreen() {
               <CheckCircleIcon color={colors.neon.green} size={18} />
               <Text style={styles.infoRowText}>食事分析: {advice?.meal_advice}</Text>
             </View>
+            {aiUsage && !aiUsage.premium && aiUsage.limits && (
+              <Text style={styles.usageBadge}>
+                本日残り {Math.max(0, aiUsage.limits.mealSuggestion - aiUsage.usage.mealSuggestion)}/{aiUsage.limits.mealSuggestion} 回
+              </Text>
+            )}
             <TouchableOpacity
               style={[styles.primaryBtn, styles.fullWidthBtn]}
               onPress={() => mealSuggestionMutation.mutate()}
@@ -250,10 +263,15 @@ export default function HomeScreen() {
               </View>
               <Text style={styles.checkboxLabel}>ジムに行く</Text>
             </TouchableOpacity>
+            {aiUsage && !aiUsage.premium && aiUsage.limits && (
+              <Text style={styles.usageBadge}>
+                本日残り {Math.max(0, aiUsage.limits.exerciseSuggestion - aiUsage.usage.exerciseSuggestion)}/{aiUsage.limits.exerciseSuggestion} 回
+              </Text>
+            )}
             <TouchableOpacity
               style={[styles.primaryBtn, styles.fullWidthBtn]}
               onPress={() => exerciseSuggestionMutation.mutate(goToGym)}
-              disabled={exerciseSuggestionMutation.isPending}
+              disabled={exerciseSuggestionMutation.isPending || profileLoading}
             >
               {exerciseSuggestionMutation.isPending
                 ? <ActivityIndicator color={colors.bg.primary} size="small" />
@@ -407,6 +425,7 @@ const styles = StyleSheet.create({
   primaryBtnText:         { color: colors.bg.primary, fontWeight: '700', fontSize: 14 },
   btnContentRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
+  usageBadge:             { fontSize: 11, color: colors.text.muted, textAlign: 'right', marginBottom: 4 },
   gymCheckRow:            { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   checkboxBox:            { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: colors.text.muted, alignItems: 'center', justifyContent: 'center' },
   checkboxBoxChecked:     { backgroundColor: colors.neon.green, borderColor: colors.neon.green },
