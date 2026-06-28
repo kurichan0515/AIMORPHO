@@ -1,0 +1,82 @@
+import { IUserRepository } from '../../domain/user/IUserRepository';
+import { IGoalRepository } from '../../domain/user/IGoalRepository';
+import { IStreakRepository } from '../../domain/user/IStreakRepository';
+import { IBadgeRepository } from '../../domain/badge/IBadgeRepository';
+import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
+import { UpdateProfileInput, isPremium } from '../../domain/user/User';
+import { Goal } from '../../domain/user/Goal';
+import { emptyStreak } from '../../domain/user/Streak';
+import { FREE_AI_TONES } from '../../domain/usage/UsageLimits';
+import { Result, ok, err } from '../../domain/shared/Result';
+import { UserId, GoalMode } from '../../domain/shared/types';
+
+export class UserApplicationService {
+  constructor(
+    private readonly userRepo: IUserRepository,
+    private readonly goalRepo: IGoalRepository,
+    private readonly streakRepo: IStreakRepository,
+    private readonly badgeRepo: IBadgeRepository,
+    private readonly avatarRepo: IAvatarRepository,
+  ) {}
+
+  async getProfile(userId: UserId): Promise<Result<unknown>> {
+    const user = await this.userRepo.findById(userId);
+    if (!user) return err('User not found', 404);
+    const { passwordHash, ...profile } = user;
+    return ok(profile);
+  }
+
+  async updateProfile(userId: UserId, input: UpdateProfileInput): Promise<Result<unknown>> {
+    if (!Object.keys(input).length) return err('No valid fields to update', 400);
+    if (input.aiTone) {
+      const user = await this.userRepo.findById(userId);
+      if (user && !isPremium(user) && !FREE_AI_TONES.includes(input.aiTone)) {
+        return err('AI tone requires premium', 403);
+      }
+    }
+    const updated = await this.userRepo.updateProfile(userId, input);
+    const { passwordHash, ...profile } = updated;
+    return ok(profile);
+  }
+
+  async getGoal(userId: UserId): Promise<Result<Goal>> {
+    const goal = await this.goalRepo.getGoal(userId);
+    if (!goal) return err('No active goal', 404);
+    return ok(goal);
+  }
+
+  async upsertGoal(userId: UserId, targetWeight: number, mode: GoalMode): Promise<Result<Goal>> {
+    const goal: Goal = { userId, targetWeight, mode, startedAt: new Date().toISOString() };
+    await this.goalRepo.upsertGoal(goal);
+    return ok(goal);
+  }
+
+  async getStreak(userId: UserId): Promise<Result<unknown>> {
+    const streak = await this.streakRepo.getStreak(userId) ?? emptyStreak(userId);
+    return ok(streak);
+  }
+
+  async saveFcmToken(userId: UserId, fcmToken: string): Promise<Result<{ ok: boolean }>> {
+    await this.userRepo.saveFcmToken(userId, fcmToken);
+    return ok({ ok: true });
+  }
+
+  async getBadges(userId: UserId): Promise<Result<unknown>> {
+    const badges = await this.badgeRepo.listByUser(userId);
+    return ok(badges);
+  }
+
+  async deleteAccount(userId: UserId): Promise<Result<{ message: string }>> {
+    await this.avatarRepo.delete(userId);
+    await this.userRepo.deleteAccount(userId);
+    return ok({ message: 'account deleted' });
+  }
+
+  async listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]> {
+    return this.userRepo.listAllFcmTokens();
+  }
+
+  async findById(userId: UserId) {
+    return this.userRepo.findById(userId);
+  }
+}

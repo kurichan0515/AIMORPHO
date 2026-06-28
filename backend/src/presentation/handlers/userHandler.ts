@@ -1,12 +1,7 @@
-import { LambdaEvent, error, parseBody, getUserId, toResponse } from '../http';
-import { deps } from '../container';
-import * as UserUseCases from '../../application/user/UserUseCases';
+import { LambdaEvent, error, parseBody, getUserId, fromResult } from '../http';
+import { userSvc } from '../container';
 import { UpdateProfileInput } from '../../domain/user/User';
 import { GoalMode } from '../../domain/shared/types';
-
-const userDeps = { userRepo: deps.userRepo };
-const deleteAccountDeps = { userRepo: deps.userRepo, avatarRepo: deps.avatarRepo };
-const badgeDeps = { badgeRepo: deps.badgeRepo };
 
 const ALLOWED_PROFILE_FIELDS: Array<keyof UpdateProfileInput> = [
   'displayName', 'age', 'heightCm', 'weightKg', 'bodyFatPct', 'lifestyle', 'aiTone', 'hasGym', 'bodyBalance',
@@ -20,28 +15,28 @@ export const handler = async (event: LambdaEvent) => {
   const body = parseBody(event.body);
 
   try {
-    if (path === '/users/me'        && httpMethod === 'GET')  return toResponse(await UserUseCases.getProfile(userDeps, userId));
-    if (path === '/users/me'        && httpMethod === 'PUT')  {
+    if (path === '/users/me'           && httpMethod === 'GET')    return fromResult(await userSvc.getProfile(userId as never));
+    if (path === '/users/me'           && httpMethod === 'PUT')    {
       const input = Object.fromEntries(
         Object.entries(body).filter(([k]) => ALLOWED_PROFILE_FIELDS.includes(k as keyof UpdateProfileInput))
       ) as UpdateProfileInput;
-      return toResponse(await UserUseCases.updateProfile(userDeps, userId, input));
+      return fromResult(await userSvc.updateProfile(userId as never, input));
     }
-    if (path === '/users/me/goal'   && httpMethod === 'GET')  return toResponse(await UserUseCases.getGoal(userDeps, userId));
-    if (path === '/users/me/goal'   && httpMethod === 'POST') {
-      const { targetWeight, mode } = body as { targetWeight: number; mode: GoalMode };
+    if (path === '/users/me/goal'      && httpMethod === 'GET')    return fromResult(await userSvc.getGoal(userId as never));
+    if (path === '/users/me/goal'      && httpMethod === 'POST')   {
+      const { targetWeight, mode } = body as { targetWeight?: number; mode?: GoalMode };
       if (!targetWeight || !mode) return error('targetWeight and mode required');
       if (!['diet', 'maintain', 'bulk'].includes(mode)) return error('mode must be diet, maintain or bulk');
-      return toResponse(await UserUseCases.upsertGoal(userDeps, userId, { targetWeight, mode }));
+      return fromResult(await userSvc.upsertGoal(userId as never, targetWeight, mode), 201);
     }
-    if (path === '/users/me/fcm-token' && httpMethod === 'PUT') {
+    if (path === '/users/me/fcm-token' && httpMethod === 'PUT')    {
       const { fcmToken } = body as { fcmToken?: string };
       if (!fcmToken) return error('fcmToken required');
-      return toResponse(await UserUseCases.saveFcmToken(userDeps, userId, fcmToken));
+      return fromResult(await userSvc.saveFcmToken(userId as never, fcmToken));
     }
-    if (path === '/users/me'        && httpMethod === 'DELETE') return toResponse(await UserUseCases.deleteAccount(deleteAccountDeps, userId));
-    if (path === '/users/me/streak' && httpMethod === 'GET')  return toResponse(await UserUseCases.getStreak(userDeps, userId));
-    if (path === '/users/me/badges' && httpMethod === 'GET')  return toResponse(await UserUseCases.getBadges(badgeDeps, userId));
+    if (path === '/users/me'           && httpMethod === 'DELETE') return fromResult(await userSvc.deleteAccount(userId as never));
+    if (path === '/users/me/streak'    && httpMethod === 'GET')    return fromResult(await userSvc.getStreak(userId as never));
+    if (path === '/users/me/badges'    && httpMethod === 'GET')    return fromResult(await userSvc.getBadges(userId as never));
     return error('Not found', 404);
   } catch (err) {
     console.error(err);

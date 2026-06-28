@@ -1,13 +1,13 @@
 import { LambdaEvent, error } from '../http';
+import { storageSvc } from '../container';
 import { LegalRepository, LegalFile } from '../../infrastructure/dynamodb/LegalRepository';
-import { getObjectText } from '../../infrastructure/s3/S3Client';
 
 const legalRepo = new LegalRepository();
 
 const serveFile = async (file: LegalFile) => {
   const config = await legalRepo.get(file);
   if (!config) return error('Not found', 404);
-  const html = await getObjectText(config.currentKey);
+  const html = await storageSvc.getObjectText(config.currentKey);
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },

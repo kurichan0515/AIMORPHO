@@ -1,8 +1,6 @@
-import { LambdaEvent, error, parseBody, getUserId, toResponse } from '../http';
-import { deps } from '../container';
-import * as SubscriptionUseCases from '../../application/subscription/SubscriptionUseCases';
-
-const subDeps = { userRepo: deps.userRepo };
+import { LambdaEvent, error, parseBody, getUserId, fromResult } from '../http';
+import { subscriptionSvc } from '../container';
+import { AppleWebhookPayload } from '../../infrastructure/iap/AppleIAPClient';
 
 export const handler = async (event: LambdaEvent) => {
   const { httpMethod, path } = event;
@@ -14,7 +12,7 @@ export const handler = async (event: LambdaEvent) => {
       if (!userId) return error('Unauthorized', 401);
       const { transactionId } = body as { transactionId?: string };
       if (!transactionId) return error('transactionId required');
-      return toResponse(await SubscriptionUseCases.verifyApplePurchase(subDeps, userId, transactionId));
+      return fromResult(await subscriptionSvc.verifyApplePurchase(userId as never, transactionId));
     }
 
     if (path === '/subscriptions/verify/google' && httpMethod === 'POST') {
@@ -22,19 +20,19 @@ export const handler = async (event: LambdaEvent) => {
       if (!userId) return error('Unauthorized', 401);
       const { productId, purchaseToken } = body as { productId?: string; purchaseToken?: string };
       if (!productId || !purchaseToken) return error('productId and purchaseToken required');
-      return toResponse(await SubscriptionUseCases.verifyGooglePurchase(subDeps, userId, productId, purchaseToken));
+      return fromResult(await subscriptionSvc.verifyGooglePurchase(userId as never, productId, purchaseToken));
     }
 
     if (path === '/subscriptions/webhook/apple' && httpMethod === 'POST') {
       const { signedPayload } = body as { signedPayload?: string };
       if (!signedPayload) return error('signedPayload required');
-      return toResponse(await SubscriptionUseCases.handleAppleWebhook(subDeps, { signedPayload }));
+      return fromResult(await subscriptionSvc.handleAppleWebhook({ signedPayload } as AppleWebhookPayload));
     }
 
     if (path === '/subscriptions/webhook/google' && httpMethod === 'POST') {
       const { message } = body as { message?: { data: string } };
       if (!message?.data) return error('message.data required');
-      return toResponse(await SubscriptionUseCases.handleGoogleWebhook(subDeps, message));
+      return fromResult(await subscriptionSvc.handleGoogleWebhook(message));
     }
 
     return error('Not found', 404);

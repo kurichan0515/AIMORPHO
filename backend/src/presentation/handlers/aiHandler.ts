@@ -1,15 +1,5 @@
-import { LambdaEvent, error, parseBody, getUserId, toResponse } from '../http';
-import { deps } from '../container';
-import * as AiUseCases from '../../application/ai/AiUseCases';
-
-const aiDeps = {
-  userRepo: deps.userRepo,
-  avatarRepo: deps.avatarRepo,
-  bodyLogRepo: deps.bodyLogRepo,
-  mealRepo: deps.mealRepo,
-  adviceRepo: deps.adviceRepo,
-  usageRepo: deps.usageRepo,
-};
+import { LambdaEvent, error, parseBody, getUserId, fromResult } from '../http';
+import { aiSvcApp } from '../container';
 
 export const handler = async (event: LambdaEvent) => {
   const userId = getUserId(event);
@@ -19,16 +9,17 @@ export const handler = async (event: LambdaEvent) => {
   const body = parseBody(event.body);
 
   try {
-    if (path === '/ai/daily-advice'  && httpMethod === 'GET')  return toResponse(await AiUseCases.getDailyAdvice(aiDeps, userId));
-    if (path === '/ai/penalty-event' && httpMethod === 'POST') {
+    if (path === '/ai/usage'              && httpMethod === 'GET')  return fromResult(await aiSvcApp.getAiUsage(userId as never));
+    if (path === '/ai/daily-advice'       && httpMethod === 'GET')  return fromResult(await aiSvcApp.getDailyAdvice(userId as never));
+    if (path === '/ai/penalty-event'      && httpMethod === 'POST') {
       const { answer } = body as { answer?: string };
-      return toResponse(await AiUseCases.handlePenaltyEvent(aiDeps, userId, answer));
+      return fromResult(await aiSvcApp.handlePenaltyEvent(userId as never, answer));
     }
-    if (path === '/ai/goal-message'       && httpMethod === 'GET')  return toResponse(await AiUseCases.getGoalMessage(aiDeps, userId));
-    if (path === '/ai/meal-suggestion'    && httpMethod === 'POST') return toResponse(await AiUseCases.getMealSuggestion(aiDeps, userId));
+    if (path === '/ai/goal-message'       && httpMethod === 'GET')  return fromResult(await aiSvcApp.getGoalMessage(userId as never));
+    if (path === '/ai/meal-suggestion'    && httpMethod === 'POST') return fromResult(await aiSvcApp.getMealSuggestion(userId as never));
     if (path === '/ai/exercise-suggestion' && httpMethod === 'POST') {
       const { goToGym } = body as { goToGym?: boolean };
-      return toResponse(await AiUseCases.getExerciseSuggestion(aiDeps, userId, goToGym ?? false));
+      return fromResult(await aiSvcApp.getExerciseSuggestion(userId as never, goToGym ?? false));
     }
     return error('Not found', 404);
   } catch (err) {
