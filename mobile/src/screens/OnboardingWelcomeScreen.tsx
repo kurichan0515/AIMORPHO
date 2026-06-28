@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  FlatList, Dimensions, Linking, Alert,
+  FlatList, Dimensions, Linking, Alert, NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../theme/colors';
@@ -133,6 +133,11 @@ export default function OnboardingWelcomeScreen() {
     setPageIndex(idx);
   };
 
+  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / SW);
+    if (idx >= 0 && idx < total) setPageIndex(idx);
+  };
+
   const handleNext = () => {
     if (isLast) {
       if (!agreedTerms || !agreedPrivacy) {
@@ -162,7 +167,8 @@ export default function OnboardingWelcomeScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
+        scrollEnabled={true}
+        onMomentumScrollEnd={onScrollEnd}
         getItemLayout={(_, index) => ({ length: SW, offset: SW * index, index })}
         renderItem={({ item }) => {
           if (item.type === 'consent') return <ConsentPage />;

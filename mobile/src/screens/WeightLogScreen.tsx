@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { recordWeight, getWeightHistory } from '../api/logs';
 import { colors } from '../theme/colors';
+import StreakCelebrationModal from '../components/StreakCelebrationModal';
+import Toast from '../components/Toast';
+import { useStreakCelebration } from '../hooks/useStreakCelebration';
+import { useToast } from '../hooks/useToast';
 
 const CHART_WIDTH = 320;
 const CHART_HEIGHT = 160;
@@ -124,6 +128,9 @@ function WeightChart({ data }: { data: WeightRecord[] }) {
 export default function WeightLogScreen() {
   const [input, setInput] = useState('');
   const [bodyFatInput, setBodyFatInput] = useState('');
+  const { toastVisible, toastMessage, showToast, hideToast } = useToast();
+  const streak = useStreakCelebration();
+  const qc = useQueryClient();
 
   const { data: history, refetch } = useQuery({
     queryKey: ['weightHistory'],
@@ -136,8 +143,15 @@ export default function WeightLogScreen() {
       setInput('');
       setBodyFatInput('');
       refetch();
-      if (data.newBadges?.length) {
-        Alert.alert('バッジ獲得！', data.newBadges.map((b: any) => b.name).join('、'));
+      qc.invalidateQueries({ queryKey: ['streak'] });
+      streak.trigger(data);
+
+      const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
+      if (nonStreakBadges.length) {
+        Alert.alert('バッジ獲得！', nonStreakBadges.map((b: any) => b.name).join('、'));
+      }
+      if (!data.streakInfo?.streakMilestone && !data.streakInfo?.returnedAfterBreak) {
+        showToast('体重を記録しました');
       }
     },
     onError: () => Alert.alert('エラー', '記録に失敗しました'),
@@ -166,6 +180,7 @@ export default function WeightLogScreen() {
   const chartData = [...(history || [])].reverse();
 
   return (
+    <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
     <ScrollView style={styles.container}>
       {latest && (
         <View style={styles.latestCard}>
@@ -222,6 +237,18 @@ export default function WeightLogScreen() {
       ))}
       <View style={{ height: 24 }} />
     </ScrollView>
+
+    <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
+    {streak.celebration && (
+      <StreakCelebrationModal
+        visible={streak.visible}
+        streakDays={streak.celebration.days}
+        badgeName={streak.celebration.badgeName}
+        isComeback={streak.celebration.isComeback}
+        onDismiss={streak.dismiss}
+      />
+    )}
+    </View>
   );
 }
 
@@ -235,7 +262,7 @@ const styles = StyleSheet.create({
   fieldRow:       { marginBottom: 12 },
   fieldLabel:     { fontSize: 12, color: colors.text.secondary, marginBottom: 6 },
   input:          { backgroundColor: colors.bg.cardAlt, borderRadius: 10, paddingHorizontal: 16, fontSize: 18, height: 52, color: colors.text.primary },
-  submitBtn:      { backgroundColor: colors.neon.blue, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  submitBtn:      { backgroundColor: colors.neon.blue, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4, minHeight: 50, justifyContent: 'center' },
   submitBtnText:  { color: colors.bg.primary, fontWeight: 'bold', fontSize: 16 },
   sectionTitle:   { fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: colors.text.primary },
   mockLabel:      { fontSize: 10, color: colors.text.muted, alignSelf: 'flex-end', marginBottom: 2 },
