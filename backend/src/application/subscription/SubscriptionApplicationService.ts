@@ -69,14 +69,15 @@ export class SubscriptionApplicationService {
     const decoded = decodeAppleWebhook(payload);
     if (!decoded) return err('invalid payload', 400);
 
-    const notificationType: string = decoded.notificationType;
-    const appAccountToken: string | undefined = decoded.data?.appAccountToken;
+    const notificationType = decoded.notificationType as string | undefined;
+    const decodedData = decoded.data as Record<string, unknown> | undefined;
+    const appAccountToken = decodedData?.appAccountToken as string | undefined;
 
-    if (!['DID_RENEW', 'SUBSCRIBED', 'DID_CHANGE_RENEWAL_STATUS'].includes(notificationType)) {
+    if (!notificationType || !['DID_RENEW', 'SUBSCRIBED', 'DID_CHANGE_RENEWAL_STATUS'].includes(notificationType)) {
       return ok({ received: true });
     }
 
-    const transactionJws: string = decoded.data?.signedTransactionInfo;
+    const transactionJws = decodedData?.signedTransactionInfo as string | undefined;
     if (!transactionJws || !appAccountToken) return ok({ received: true });
 
     await this.verifyApplePurchase(appAccountToken as UserId, '');

@@ -47,7 +47,7 @@ async function getAccessToken(): Promise<string> {
       assertion: `${header}.${claims}.${signature}`,
     }),
   });
-  const data = await res.json() as any;
+  const data = await res.json() as Record<string, unknown>;
   return data.access_token as string;
 }
 
@@ -68,17 +68,17 @@ export async function verifyGooglePurchase(
   );
   if (!res.ok) return { ok: false, reason: `Google API ${res.status}` };
 
-  const data = await res.json() as any;
-  const lineItem = data.lineItems?.[0];
+  const data = await res.json() as Record<string, unknown>;
+  const lineItem = (data.lineItems as Array<Record<string, unknown>>)?.[0];
   if (!lineItem) return { ok: false, reason: 'no line item' };
 
-  const expiresMs = Number(lineItem.expiryTime);
+  const expiresMs = Number(lineItem.expiryTime as string | number);
   if (Date.now() > expiresMs) return { ok: false, reason: 'subscription expired' };
 
   return {
     ok: true,
-    productId: lineItem.productId ?? productId,
+    productId: (lineItem.productId as string | undefined) ?? productId,
     expiresAt: new Date(expiresMs).toISOString(),
-    orderId:   data.latestOrderId ?? '',
+    orderId:   (data.latestOrderId as string | undefined) ?? '',
   };
 }

@@ -57,28 +57,29 @@ export async function verifyAppleTransaction(transactionId: string): Promise<App
   });
   if (!res.ok) return { ok: false, reason: `Apple API ${res.status}` };
 
-  const data = await res.json() as any;
-  const signedTransaction = data.data?.[0]?.lastTransactions?.[0]?.signedTransactionInfo;
-  if (!signedTransaction) return { ok: false, reason: 'no transaction found' };
+  const data = await res.json() as Record<string, unknown>;
+  const signedTransaction = (data.data as Array<Record<string, unknown>>)?.[0]?.lastTransactions as Array<Record<string, unknown>> | undefined;
+  const signedTransactionInfo = signedTransaction?.[0]?.signedTransactionInfo as string | undefined;
+  if (!signedTransactionInfo) return { ok: false, reason: 'no transaction found' };
 
-  const decoded = jwt.decode(signedTransaction, { complete: true })?.payload as any;
+  const decoded = jwt.decode(signedTransactionInfo, { complete: true })?.payload as Record<string, unknown> | null;
   if (!decoded) return { ok: false, reason: 'decode failed' };
-  if (decoded.bundleId !== bundleId) return { ok: false, reason: 'bundle id mismatch' };
+  if (decoded?.bundleId !== bundleId) return { ok: false, reason: 'bundle id mismatch' };
 
-  const expiresMs = decoded.expiresDate as number;
+  const expiresMs = decoded?.expiresDate as number;
   if (Date.now() > expiresMs) return { ok: false, reason: 'subscription expired' };
 
   return {
     ok: true,
-    productId: decoded.productId,
+    productId: decoded?.productId as string,
     expiresAt: new Date(expiresMs).toISOString(),
-    transactionId: decoded.transactionId,
-    environment: decoded.environment,
+    transactionId: decoded?.transactionId as string,
+    environment: decoded?.environment as string,
   };
 }
 
 export type AppleWebhookPayload = { signedPayload: string };
 
-export function decodeAppleWebhook(payload: AppleWebhookPayload): any {
-  return jwt.decode(payload.signedPayload, { complete: true })?.payload ?? null;
+export function decodeAppleWebhook(payload: AppleWebhookPayload): Record<string, unknown> | null {
+  return (jwt.decode(payload.signedPayload, { complete: true })?.payload as Record<string, unknown>) ?? null;
 }
