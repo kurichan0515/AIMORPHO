@@ -13,12 +13,14 @@ import { DEFAULT_AVATAR_LABELS, getDefaultAvatars } from '../utils/defaultAvatar
 import { colors } from '../theme/colors';
 import AvatarSilhouette from '../components/ui/AvatarSilhouette';
 import { BellIcon, WorkoutsIcon, CheckCircleIcon, BulbIcon, MealIcon, SparkleIcon } from '../components/ui/icons';
+import { useIAP } from '../hooks/useIAP';
 
 const isLimitError = (err: any) => err?.response?.status === 429;
 const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
 
 export default function HomeScreen() {
   const { bodyState, avatarImages, gender } = useAvatarStore();
+  const { purchase } = useIAP();
   const [activeTab, setActiveTab] = useState<'nutrition' | 'workout'>('nutrition');
   const [showInterrogation, setShowInterrogation] = useState(false);
   const [interrogationMsg, setInterrogationMsg] = useState('');
@@ -154,7 +156,7 @@ export default function HomeScreen() {
       <View style={styles.avatarSection}>
         {currentAvatarUrl ? (
           <>
-            <AvatarSilhouette width={220} height={300} style={styles.avatarSilhouette} />
+            <AvatarSilhouette width={170} height={230} style={styles.avatarSilhouette} />
             <Image source={{ uri: currentAvatarUrl }} style={styles.avatarOverlayImage} resizeMode="contain" />
           </>
         ) : (
@@ -194,6 +196,20 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* プレミアム訴求バナー（フリーユーザーのみ） */}
+      {aiUsage && !aiUsage.premium && (
+        <TouchableOpacity style={styles.premiumBanner} onPress={purchase}>
+          <View style={styles.premiumBannerInner}>
+            <Text style={styles.premiumBannerIcon}>👑</Text>
+            <View style={styles.premiumBannerText}>
+              <Text style={styles.premiumBannerTitle}>プレミアムで制限なし</Text>
+              <Text style={styles.premiumBannerSub}>AI提案・食事解析が無制限に</Text>
+            </View>
+            <Text style={styles.premiumBannerArrow}>›</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* AI Advisor */}
       <View style={styles.advisorCard}>
         <View style={styles.geminiLabelRow}>
@@ -224,8 +240,6 @@ export default function HomeScreen() {
 
         {activeTab === 'nutrition' ? (
           <>
-            <View style={styles.mealPhoto} />
-            <Text style={styles.mealPhotoLabel}>今日の食事</Text>
             <View style={styles.infoRow}>
               <CheckCircleIcon color={colors.neon.green} size={18} />
               <Text style={styles.infoRowText}>食事分析: {advice?.meal_advice}</Text>
@@ -379,9 +393,9 @@ const styles = StyleSheet.create({
   journeyTitle:           { fontSize: 15, fontWeight: '700', color: colors.text.primary },
   journeyGoal:            { fontSize: 12, fontWeight: '600', color: colors.neon.orange, marginTop: 2 },
 
-  avatarSection:          { height: 380, backgroundColor: colors.bg.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarSection:          { height: 260, backgroundColor: colors.bg.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarSilhouette:       { marginTop: 20 },
-  avatarOverlayImage:     { position: 'absolute', width: 200, height: 280, opacity: 0.9 },
+  avatarOverlayImage:     { position: 'absolute', width: 160, height: 220, opacity: 0.9 },
   defaultAvatarCircle:    { width: 200, height: 200, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
   defaultAvatarEmoji:     { fontSize: 100 },
   dataLabel:              { position: 'absolute', flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: 'rgba(15,20,35,0.9)', borderWidth: 1, shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
@@ -426,6 +440,13 @@ const styles = StyleSheet.create({
   btnContentRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
   usageBadge:             { fontSize: 11, color: colors.text.muted, textAlign: 'right', marginBottom: 4 },
+  premiumBanner:          { marginHorizontal: 20, marginBottom: 12, borderRadius: 12, backgroundColor: 'rgba(255,209,102,0.1)', borderWidth: 1, borderColor: 'rgba(255,209,102,0.35)', overflow: 'hidden' },
+  premiumBannerInner:     { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  premiumBannerIcon:      { fontSize: 22 },
+  premiumBannerText:      { flex: 1 },
+  premiumBannerTitle:     { fontSize: 14, fontWeight: '700', color: colors.neon.yellow },
+  premiumBannerSub:       { fontSize: 12, color: colors.text.muted, marginTop: 2 },
+  premiumBannerArrow:     { fontSize: 22, color: colors.neon.yellow, fontWeight: '300', lineHeight: 26 },
   gymCheckRow:            { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   checkboxBox:            { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: colors.text.muted, alignItems: 'center', justifyContent: 'center' },
   checkboxBoxChecked:     { backgroundColor: colors.neon.green, borderColor: colors.neon.green },

@@ -7,17 +7,17 @@ export const colors = {
   },
   neon: {
     blue: '#2FC8FF',
-    orange: '#FF8033',
-    green: '#4ADE80',
-    yellow: '#FFD166',
+    orange: '#FF7A20',
+    green: '#3DCA6E',
+    yellow: '#F5C842',
   },
   text: {
-    primary: '#FFFFFF',
+    primary: '#F0F4FF',
     secondary: '#8A93A6',
-    muted: '#5A6478',
+    muted: '#6B7A96',
   },
   border: {
-    blue: 'rgba(47,200,255,0.4)',
+    blue: 'rgba(47,200,255,0.35)',
     subtle: '#1E2638',
   },
   danger: '#FF4545',

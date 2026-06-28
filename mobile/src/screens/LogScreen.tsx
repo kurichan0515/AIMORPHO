@@ -16,18 +16,23 @@ const TABS = [
   { key: 'exercise', label: '運動', component: ExerciseLogScreen },
 ] as const;
 
+const MEAL_TAB_INDEX = TABS.findIndex(t => t.key === 'meal');
+
 export default function LogScreen() {
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(MEAL_TAB_INDEX);
+  const [mounted, setMounted] = useState(() => new Set([MEAL_TAB_INDEX]));
   const scrollRef = useRef<ScrollView>(null);
 
   const goToTab = (index: number) => {
     setTab(index);
+    setMounted(prev => new Set([...prev, index]));
     scrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
   };
 
   const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setTab(index);
+    setMounted(prev => new Set([...prev, index]));
   };
 
   return (
@@ -49,12 +54,13 @@ export default function LogScreen() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumScrollEnd}
+        contentOffset={{ x: MEAL_TAB_INDEX * SCREEN_WIDTH, y: 0 }}
       >
-        {TABS.map((t) => {
+        {TABS.map((t, i) => {
           const ActiveComponent = t.component;
           return (
             <View key={t.key} style={{ width: SCREEN_WIDTH }}>
-              <ActiveComponent />
+              {mounted.has(i) ? <ActiveComponent /> : null}
             </View>
           );
         })}

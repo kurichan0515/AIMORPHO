@@ -72,10 +72,15 @@ export default function OnboardingAvatarScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.stepIndicator}>
-        <View style={styles.dot} />
-        <View style={styles.dot} />
-        <View style={[styles.dot, styles.dotActive]} />
+      <View style={styles.headerRow}>
+        <View style={styles.stepIndicator}>
+          <View style={styles.dot} />
+          <View style={styles.dot} />
+          <View style={[styles.dot, styles.dotActive]} />
+        </View>
+        <TouchableOpacity onPress={startWithDefault} style={styles.skipBtn}>
+          <Text style={styles.skipText}>後でする</Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.title}>アバター設定</Text>
@@ -191,7 +196,10 @@ export default function OnboardingAvatarScreen() {
 
 const styles = StyleSheet.create({
   container:             { flexGrow: 1, padding: 24, backgroundColor: colors.bg.primary },
-  stepIndicator:         { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 24, marginTop: 8 },
+  headerRow:             { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, marginTop: 8 },
+  stepIndicator:         { flexDirection: 'row', gap: 8 },
+  skipBtn:               { paddingVertical: 4, paddingHorizontal: 8 },
+  skipText:              { fontSize: 14, color: colors.text.muted },
   dot:                   { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.bg.cardAlt },
   dotActive:             { backgroundColor: colors.neon.blue },
   title:                 { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: colors.text.primary },
