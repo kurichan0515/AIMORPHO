@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/useAuthStore';
+import { BASE_URL as API_BASE } from '../api/client';
+import { colors } from '../theme/colors';
 
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
@@ -31,15 +33,22 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg.primary }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>アカウント登録</Text>
         <Text style={styles.subtitle}>
           メールアドレスを登録すると、機種変更や再インストール後でもデータを復元できます。
           現在のデータはそのまま引き継がれます。
         </Text>
-        <TextInput style={styles.input} placeholder="メールアドレス" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <TextInput style={styles.input} placeholder="パスワード（8文字以上）" value={password} onChangeText={setPassword} secureTextEntry />
+        <TextInput style={styles.input} placeholder="メールアドレス" placeholderTextColor={colors.text.muted} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+        <TextInput style={styles.input} placeholder="パスワード（8文字以上）" placeholderTextColor={colors.text.muted} value={password} onChangeText={setPassword} secureTextEntry />
+        <Text style={styles.terms}>
+          登録すると
+          <Text style={styles.termsLink} onPress={() => Linking.openURL(`${API_BASE}/legal/terms`)}>利用規約</Text>
+          および
+          <Text style={styles.termsLink} onPress={() => Linking.openURL(`${API_BASE}/legal/privacy`)}>プライバシーポリシー</Text>
+          に同意したものとみなされます。
+        </Text>
         <TouchableOpacity style={styles.btn} onPress={submit} disabled={loading}>
           <Text style={styles.btnText}>{loading ? '登録中...' : 'アカウントを登録する'}</Text>
         </TouchableOpacity>
@@ -52,11 +61,13 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:  { flexGrow: 1, justifyContent: 'center', padding: 24, backgroundColor: '#FFF' },
-  title:      { fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
-  subtitle:   { fontSize: 13, color: '#666', marginBottom: 24, lineHeight: 20 },
-  input:      { borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 12 },
-  btn:        { backgroundColor: '#007AFF', borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 8 },
-  btnText:    { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  link:       { textAlign: 'center', marginTop: 16, color: '#007AFF' },
+  container:  { flexGrow: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.bg.primary },
+  title:      { fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: colors.text.primary },
+  subtitle:   { fontSize: 13, color: colors.text.secondary, marginBottom: 24, lineHeight: 20 },
+  input:      { borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 12, backgroundColor: colors.bg.card, color: colors.text.primary },
+  terms:      { fontSize: 12, color: colors.text.secondary, lineHeight: 18, marginBottom: 8 },
+  termsLink:  { color: colors.neon.blue, textDecorationLine: 'underline' },
+  btn:        { backgroundColor: colors.neon.blue, borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 8 },
+  btnText:    { color: colors.bg.primary, fontSize: 16, fontWeight: 'bold' },
+  link:       { textAlign: 'center', marginTop: 16, color: colors.neon.blue },
 });

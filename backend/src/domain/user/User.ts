@@ -18,6 +18,13 @@ export type User = {
   timezone: string;
   createdAt: DateString;
   fcmToken?: string;
+  subscriptionTier?: 'free' | 'premium';
+  subscriptionExpiresAt?: DateString;
+  subscriptionStore?: 'apple' | 'google';
+  subscriptionProductId?: string;
+  subscriptionTransactionId?: string;
+  deleted?: boolean;
+  deletedAt?: DateString;
 };
 
 export type UserProfile = Omit<User, 'passwordHash'>;
@@ -25,3 +32,9 @@ export type UserProfile = Omit<User, 'passwordHash'>;
 export type UpdateProfileInput = Partial<Pick<User,
   'displayName' | 'age' | 'heightCm' | 'weightKg' | 'bodyFatPct' | 'lifestyle' | 'aiTone' | 'hasGym' | 'bodyBalance'
 >>;
+
+export const isPremium = (user: User): boolean => {
+  if (user.subscriptionTier !== 'premium') return false;
+  if (user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) < new Date()) return false;
+  return true;
+};

@@ -6,13 +6,14 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import api from '../api/client';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { colors } from '../theme/colors';
 
 type GoalMode = 'diet' | 'maintain' | 'bulk';
 
-const GOAL_OPTIONS: { value: GoalMode; label: string; emoji: string; desc: string }[] = [
-  { value: 'diet',     label: '減量',    emoji: '🔥', desc: '体重・体脂肪を減らす' },
-  { value: 'maintain', label: '体型維持', emoji: '⚖️', desc: '今の体型をキープ' },
-  { value: 'bulk',     label: '増量',    emoji: '💪', desc: '筋肉・体重を増やす' },
+const GOAL_OPTIONS: { value: GoalMode; label: string; sub: string; desc: string; accent: string }[] = [
+  { value: 'diet',     label: '減量',    sub: 'CUT',      desc: '体重・体脂肪を減らす', accent: '#FF8033' },
+  { value: 'maintain', label: '体型維持', sub: 'MAINTAIN', desc: '今の体型をキープ',     accent: '#2FC8FF' },
+  { value: 'bulk',     label: '増量',    sub: 'BULK',     desc: '筋肉・体重を増やす',   accent: '#4ADE80' },
 ];
 
 export default function OnboardingGoalScreen() {
@@ -55,7 +56,7 @@ export default function OnboardingGoalScreen() {
   const skip = () => navigation.navigate('OnboardingAvatar');
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg.primary }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.stepIndicator}>
           <View style={styles.dot} />
@@ -96,6 +97,7 @@ export default function OnboardingGoalScreen() {
           <TextInput
             style={styles.inputInner}
             placeholder="例: 60.0"
+            placeholderTextColor={colors.text.muted}
             value={targetWeight}
             onChangeText={setTargetWeight}
             keyboardType="decimal-pad"
@@ -109,6 +111,7 @@ export default function OnboardingGoalScreen() {
           <TextInput
             style={styles.inputInner}
             placeholder="例: 20.0"
+            placeholderTextColor={colors.text.muted}
             value={targetBodyFatPct}
             onChangeText={setTargetBodyFatPct}
             keyboardType="decimal-pad"
@@ -121,12 +124,13 @@ export default function OnboardingGoalScreen() {
           {GOAL_OPTIONS.map(o => (
             <TouchableOpacity
               key={o.value}
-              style={[styles.goalBtn, mode === o.value && styles.goalBtnActive]}
+              style={[styles.goalBtn, mode === o.value && { borderColor: o.accent, backgroundColor: `${o.accent}18` }]}
               onPress={() => setMode(o.value)}
             >
-              <Text style={styles.goalEmoji}>{o.emoji}</Text>
-              <Text style={[styles.goalLabel, mode === o.value && styles.goalLabelActive]}>{o.label}</Text>
-              <Text style={[styles.goalDesc, mode === o.value && styles.goalDescActive]}>{o.desc}</Text>
+              <View style={[styles.goalAccentBar, { backgroundColor: o.accent }]} />
+              <Text style={[styles.goalSub, { color: o.accent }]}>{o.sub}</Text>
+              <Text style={[styles.goalLabel, mode === o.value && { color: o.accent }]}>{o.label}</Text>
+              <Text style={styles.goalDesc}>{o.desc}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -144,34 +148,32 @@ export default function OnboardingGoalScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:      { flexGrow: 1, padding: 24, backgroundColor: '#FFF' },
+  container:      { flexGrow: 1, padding: 24, backgroundColor: colors.bg.primary },
   stepIndicator:  { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 24, marginTop: 8 },
-  dot:            { width: 8, height: 8, borderRadius: 4, backgroundColor: '#DDD' },
-  dotActive:      { backgroundColor: '#007AFF' },
-  title:          { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-  hintBox:        { backgroundColor: '#F0F8FF', borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#C8E6FA' },
-  hintTitle:      { fontSize: 12, color: '#007AFF', fontWeight: '600', marginBottom: 8 },
+  dot:            { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.bg.cardAlt },
+  dotActive:      { backgroundColor: colors.neon.blue },
+  title:          { fontSize: 24, fontWeight: 'bold', marginBottom: 16, color: colors.text.primary },
+  hintBox:        { backgroundColor: colors.bg.card, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.border.blue },
+  hintTitle:      { fontSize: 12, color: colors.neon.blue, fontWeight: '600', marginBottom: 8 },
   hintRow:        { flexDirection: 'row', gap: 12 },
   hintItem:       { flex: 1, alignItems: 'center' },
-  hintLabel:      { fontSize: 11, color: '#888', marginBottom: 2 },
-  hintValue:      { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  hintCurrent:    { color: '#007AFF' },
-  label:          { fontSize: 14, fontWeight: '600', color: '#333', marginTop: 12, marginBottom: 8 },
-  required:       { color: '#FF3B30' },
-  optional:       { fontWeight: '400', color: '#999', fontSize: 12 },
-  inputWrapper:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#DDD', borderRadius: 10, backgroundColor: '#FAFAFA', paddingHorizontal: 16, height: 56 },
-  inputInner:     { flex: 1, fontSize: 22, fontWeight: '600', textAlign: 'center' },
-  unit:           { fontSize: 14, color: '#888', marginLeft: 4 },
+  hintLabel:      { fontSize: 11, color: colors.text.muted, marginBottom: 2 },
+  hintValue:      { fontSize: 16, fontWeight: 'bold', color: colors.text.primary },
+  hintCurrent:    { color: colors.neon.blue },
+  label:          { fontSize: 14, fontWeight: '600', color: colors.text.secondary, marginTop: 12, marginBottom: 8 },
+  required:       { color: colors.danger },
+  optional:       { fontWeight: '400', color: colors.text.muted, fontSize: 12 },
+  inputWrapper:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 10, backgroundColor: colors.bg.card, paddingHorizontal: 16, height: 56 },
+  inputInner:     { flex: 1, fontSize: 22, fontWeight: '600', textAlign: 'center', color: colors.text.primary },
+  unit:           { fontSize: 14, color: colors.text.secondary, marginLeft: 4 },
   goalRow:        { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  goalBtn:        { flex: 1, alignItems: 'center', padding: 14, borderRadius: 12, backgroundColor: '#F5F5F5', borderWidth: 2, borderColor: 'transparent' },
-  goalBtnActive:  { borderColor: '#007AFF', backgroundColor: '#E8F4FF' },
-  goalEmoji:      { fontSize: 26, marginBottom: 4 },
-  goalLabel:      { fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 2 },
-  goalLabelActive:{ color: '#007AFF' },
-  goalDesc:       { fontSize: 10, color: '#888', textAlign: 'center' },
-  goalDescActive: { color: '#007AFF' },
-  nextBtn:        { backgroundColor: '#007AFF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
-  nextBtnText:    { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  goalBtn:        { flex: 1, alignItems: 'center', paddingVertical: 16, paddingHorizontal: 6, borderRadius: 12, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.subtle, overflow: 'hidden' },
+  goalAccentBar:  { width: 24, height: 3, borderRadius: 2, marginBottom: 8 },
+  goalSub:        { fontSize: 9, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  goalLabel:      { fontSize: 13, fontWeight: '700', color: colors.text.primary, marginBottom: 4 },
+  goalDesc:       { fontSize: 9, color: colors.text.muted, textAlign: 'center', lineHeight: 13 },
+  nextBtn:        { backgroundColor: colors.neon.blue, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
+  nextBtnText:    { color: colors.bg.primary, fontSize: 16, fontWeight: 'bold' },
   skipBtn:        { alignItems: 'center', marginTop: 16, padding: 12 },
-  skipText:       { color: '#999', fontSize: 14 },
+  skipText:       { color: colors.text.muted, fontSize: 14 },
 });

@@ -2,8 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const BASE_URL = __DEV__
-  ? (Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000')
+export const BASE_URL = __DEV__
+  ? (Platform.OS === 'android' ? 'http://192.168.1.4:3001' : 'http://localhost:3001')
   : (process.env.API_BASE_URL ?? 'https://api.aimorpho.example.com');
 
 const api = axios.create({ baseURL: BASE_URL });

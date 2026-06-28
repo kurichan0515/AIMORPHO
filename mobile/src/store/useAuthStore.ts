@@ -6,7 +6,7 @@ import {
 } from '../api/auth';
 import { fetchAvatar } from '../api/avatar';
 import { useAvatarStore } from './useAvatarStore';
-import { getDeviceId } from '../utils/deviceId';
+import { getDeviceId, regenerateDeviceId } from '../utils/deviceId';
 import { requestNotificationPermission, getFcmToken } from '../utils/notifications';
 import api from '../api/client';
 
@@ -105,7 +105,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   resetGuestData: async () => {
+    // deviceIdを再発行しないと init() が同じ匿名ユーザーに復帰し、サーバー側データが残ってしまう
+    await regenerateDeviceId();
     await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userId', ONBOARDING_KEY, IS_ANONYMOUS_KEY, 'myGroupId']);
+    useAvatarStore.getState().reset();
     set({ isLoggedIn: false, userId: null, isAnonymous: true, onboardingCompleted: false, isInitialized: false });
     await get().init();
   },

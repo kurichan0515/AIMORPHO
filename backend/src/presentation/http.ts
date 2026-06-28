@@ -1,3 +1,5 @@
+import type { Result } from '../domain/shared/Result';
+
 export type LambdaEvent = {
   httpMethod: string;
   path: string;
@@ -40,3 +42,6 @@ type UseCaseResult =
 
 export const toResponse = (result: UseCaseResult): HttpResponse =>
   'error' in result ? error(result.error, result.statusCode) : ok(result.data, result.statusCode);
+
+export const fromResult = <T>(result: Result<T>, successStatus = 200): HttpResponse =>
+  result.ok ? ok(result.value, successStatus) : error(result.error, result.statusCode);

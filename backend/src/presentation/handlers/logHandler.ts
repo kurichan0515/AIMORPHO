@@ -1,14 +1,5 @@
-import { LambdaEvent, error, parseBody, getUserId, toResponse } from '../http';
-import { deps } from '../container';
-import * as BodyLogUseCases from '../../application/body-log/BodyLogUseCases';
-
-const logDeps = {
-  userRepo: deps.userRepo,
-  bodyLogRepo: deps.bodyLogRepo,
-  avatarRepo: deps.avatarRepo,
-  mealRepo: deps.mealRepo,
-  badgeSvc: deps.badgeSvc,
-};
+import { LambdaEvent, error, parseBody, getUserId, fromResult } from '../http';
+import { bodyLogSvc } from '../container';
 
 export const handler = async (event: LambdaEvent) => {
   const userId = getUserId(event);
@@ -20,20 +11,22 @@ export const handler = async (event: LambdaEvent) => {
 
   try {
     if (path === '/logs/weight'   && httpMethod === 'POST') {
-      const { weightKg } = body as { weightKg?: number };
+      const { weightKg, bodyFatPct } = body as { weightKg?: number; bodyFatPct?: number };
       if (!weightKg) return error('weightKg required');
-      return toResponse(await BodyLogUseCases.recordWeight(logDeps, userId, weightKg));
+      return fromResult(await bodyLogSvc.recordWeight(userId as never, weightKg, bodyFatPct), 201);
     }
     if (path === '/logs/weight'   && httpMethod === 'GET') {
-      return toResponse(await BodyLogUseCases.getWeightHistory(logDeps, userId, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
+      return fromResult(await bodyLogSvc.getWeightHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
     }
     if (path === '/logs/exercise' && httpMethod === 'POST') {
-      const { exerciseName, durationMin, kcalBurned, completed, muscleGroups } = body as { exerciseName?: string; durationMin?: number; kcalBurned?: number; completed?: boolean; muscleGroups?: string[] };
+      const { exerciseName, durationMin, kcalBurned, completed, muscleGroups } = body as {
+        exerciseName?: string; durationMin?: number; kcalBurned?: number; completed?: boolean; muscleGroups?: string[];
+      };
       if (!exerciseName) return error('exerciseName required');
-      return toResponse(await BodyLogUseCases.recordExercise(logDeps, userId, { exerciseName, durationMin, kcalBurned, completed, muscleGroups }));
+      return fromResult(await bodyLogSvc.recordExercise(userId as never, { exerciseName, durationMin, kcalBurned, completed, muscleGroups }), 201);
     }
     if (path === '/logs/exercise' && httpMethod === 'GET') {
-      return toResponse(await BodyLogUseCases.getExerciseHistory(logDeps, userId, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
+      return fromResult(await bodyLogSvc.getExerciseHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
     }
     return error('Not found', 404);
   } catch (err) {

@@ -1,57 +1,58 @@
 import React from 'react';
-import { Text, View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
+import { HomeIcon, RecordIcon, GroupIcon, SettingsIcon } from '../components/ui/icons';
+import { colors } from '../theme/colors';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuthStore } from '../store/useAuthStore';
 import HomeScreen from '../screens/HomeScreen';
-import WeightLogScreen from '../screens/WeightLogScreen';
-import MealLogScreen from '../screens/MealLogScreen';
-import ExerciseLogScreen from '../screens/ExerciseLogScreen';
+import LogScreen from '../screens/LogScreen';
 import AvatarSetupScreen from '../screens/AvatarSetupScreen';
 import BadgesScreen from '../screens/BadgesScreen';
 import GroupScreen from '../screens/GroupScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import OnboardingWelcomeScreen from '../screens/OnboardingWelcomeScreen';
 import OnboardingProfileScreen from '../screens/OnboardingProfileScreen';
 import OnboardingGoalScreen from '../screens/OnboardingGoalScreen';
 import OnboardingAvatarScreen from '../screens/OnboardingAvatarScreen';
+import BodyEditScreen from '../screens/BodyEditScreen';
+import TrainingEditScreen from '../screens/TrainingEditScreen';
+import AICoachEditScreen from '../screens/AICoachEditScreen';
+import GoalEditScreen from '../screens/GoalEditScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-const LogStack = createNativeStackNavigator();
 const OnboardingStack = createNativeStackNavigator();
 
-function LogStackNavigator() {
-  return (
-    <LogStack.Navigator>
-      <LogStack.Screen name="WeightLog"   component={WeightLogScreen}   options={{ title: '体重' }} />
-      <LogStack.Screen name="MealLog"     component={MealLogScreen}     options={{ title: '食事' }} />
-      <LogStack.Screen name="ExerciseLog" component={ExerciseLogScreen} options={{ title: '運動' }} />
-    </LogStack.Navigator>
-  );
-}
-
-const TAB_ICONS: Record<string, string> = {
-  ホーム: '🏠', 記録: '📊', アバター: '🧑', グループ: '👥', プロフィール: '⚙️',
+const TAB_ICONS: Record<string, (props: { color: string; size?: number }) => React.JSX.Element> = {
+  ホーム: HomeIcon, 記録: RecordIcon, グループ: GroupIcon, 設定: SettingsIcon,
 };
 
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: () => <Text style={{ fontSize: 20 }}>{TAB_ICONS[route.name] || '●'}</Text>,
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#999',
+        tabBarIcon: ({ color, size }) => {
+          const Icon = TAB_ICONS[route.name];
+          return Icon ? <Icon color={color} size={size} /> : null;
+        },
+        tabBarActiveTintColor: colors.neon.blue,
+        tabBarInactiveTintColor: colors.text.muted,
+        tabBarStyle: {
+          backgroundColor: colors.bg.navBar,
+          borderTopColor: colors.border.subtle,
+          borderTopWidth: 1,
+        },
         headerShown: false,
       })}
     >
-      <Tab.Screen name="ホーム"       component={HomeScreen} />
-      <Tab.Screen name="記録"         component={LogStackNavigator} />
-      <Tab.Screen name="アバター"     component={AvatarSetupScreen} />
-      <Tab.Screen name="グループ"     component={GroupScreen} />
-      <Tab.Screen name="プロフィール" component={ProfileScreen} />
+      <Tab.Screen name="ホーム"   component={HomeScreen} />
+      <Tab.Screen name="記録"     component={LogScreen} />
+      <Tab.Screen name="グループ" component={GroupScreen} />
+      <Tab.Screen name="設定"     component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
@@ -59,6 +60,7 @@ function MainTabs() {
 function OnboardingNavigator() {
   return (
     <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+      <OnboardingStack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} />
       <OnboardingStack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
       <OnboardingStack.Screen name="OnboardingGoal"    component={OnboardingGoalScreen} />
       <OnboardingStack.Screen name="OnboardingAvatar"  component={OnboardingAvatarScreen} />
@@ -71,8 +73,8 @@ export default function AppNavigator() {
 
   if (!isInitialized) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' }}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg.primary }}>
+        <ActivityIndicator size="large" color={colors.neon.blue} />
       </View>
     );
   }
@@ -84,10 +86,15 @@ export default function AppNavigator() {
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         ) : (
           <>
-            <Stack.Screen name="Main"     component={MainTabs} />
-            <Stack.Screen name="Badges"   component={BadgesScreen}  options={{ headerShown: true, title: 'バッジ一覧' }} />
-            <Stack.Screen name="Login"    component={LoginScreen}   options={{ headerShown: true, title: '既存アカウントでログイン' }} />
-            <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: 'アカウント登録' }} />
+            <Stack.Screen name="Main"        component={MainTabs} />
+            <Stack.Screen name="AvatarSetup" component={AvatarSetupScreen}  options={{ headerShown: true, title: 'アバター設定' }} />
+            <Stack.Screen name="Rewards"     component={BadgesScreen}        options={{ headerShown: true, title: 'リワード' }} />
+            <Stack.Screen name="BodyEdit"    component={BodyEditScreen}      options={{ headerShown: true, title: '身体データ' }} />
+            <Stack.Screen name="TrainingEdit"component={TrainingEditScreen}  options={{ headerShown: true, title: 'トレーニング設定' }} />
+            <Stack.Screen name="AICoachEdit" component={AICoachEditScreen}   options={{ headerShown: true, title: 'AIコーチ設定' }} />
+            <Stack.Screen name="GoalEdit"    component={GoalEditScreen}      options={{ headerShown: true, title: '目標設定' }} />
+            <Stack.Screen name="Login"       component={LoginScreen}         options={{ headerShown: true, title: '既存アカウントでログイン' }} />
+            <Stack.Screen name="Register"    component={RegisterScreen}      options={{ headerShown: true, title: 'アカウント登録' }} />
           </>
         )}
       </Stack.Navigator>

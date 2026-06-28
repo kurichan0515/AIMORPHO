@@ -13,18 +13,24 @@ interface AvatarState {
   setMissedDays: (days: number) => void;
   setGender: (gender: Gender) => void;
   setUseDefault: (val: boolean) => void;
+  reset: () => void;
 }
 
-export const useAvatarStore = create<AvatarState>((set) => ({
+const INITIAL_STATE = {
   bodyState: 0,
   avatarImages: {},
   missedDays: 0,
   regenerateCount: 0,
   gender: null,
   useDefault: false,
+};
+
+export const useAvatarStore = create<AvatarState>((set) => ({
+  ...INITIAL_STATE,
   setBodyState: (bodyState) => set({ bodyState }),
   setAvatarImages: (avatarImages, regenerateCount) => set({ avatarImages, regenerateCount, useDefault: false }),
   setMissedDays: (missedDays) => set({ missedDays }),
   setGender: (gender) => set({ gender }),
   setUseDefault: (useDefault) => set({ useDefault }),
+  reset: () => set(INITIAL_STATE),
 }));

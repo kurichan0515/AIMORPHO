@@ -40,8 +40,12 @@ module "iam" {
 }
 
 module "secrets" {
-  source      = "./modules/secrets"
-  environment = var.environment
+  source         = "./modules/secrets"
+  environment    = var.environment
+  jwt_secret     = var.jwt_secret
+  gemini_api_key = var.gemini_api_key
+  apple_iap      = var.apple_iap
+  google_play    = var.google_play
 }
 
 module "lambda" {
@@ -57,10 +61,11 @@ module "lambda" {
 }
 
 module "api_gateway" {
-  source         = "./modules/api_gateway"
-  environment    = var.environment
-  aws_region     = var.aws_region
-  lambda_functions = module.lambda.function_arns
+  source                = "./modules/api_gateway"
+  environment           = var.environment
+  aws_region            = var.aws_region
+  lambda_functions      = module.lambda.function_arns
+  lambda_invoke_arns    = module.lambda.function_invoke_arns
   authorizer_invoke_arn = module.lambda.authorizer_invoke_arn
 
   depends_on = [module.lambda]

@@ -1,5 +1,5 @@
 import { UserId, BadgeId, BadgeType } from '../shared/types';
-import { Badge, BadgeDef, BADGE_DEFINITIONS } from './Badge';
+import { Badge, BADGE_DEFINITIONS } from './Badge';
 import { IBadgeRepository } from './IBadgeRepository';
 
 export class BadgeService {

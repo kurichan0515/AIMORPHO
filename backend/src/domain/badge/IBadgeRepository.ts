@@ -1,4 +1,4 @@
-import { UserId, BadgeId, BadgeType } from '../shared/types';
+import { UserId, BadgeId } from '../shared/types';
 import { Badge } from './Badge';
 
 export interface IBadgeRepository {

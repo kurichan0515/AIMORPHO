@@ -1,0 +1,60 @@
+name: Deploy Lambda
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      target:
+        description: 'デプロイ対象'
+        required: true
+        type: choice
+        options:
+          - functions-only
+          - layers-and-functions
+
+env:
+  AWS_REGION: ap-northeast-1
+  S3_BUCKET_CODE: aimorpho-lambda-code
+
+jobs:
+  deploy:
+    name: Lambda Deploy (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Deploy Layers
+        if: inputs.target == 'layers-and-functions'
+        working-directory: backend
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          S3_BUCKET_CODE: ${{ env.S3_BUCKET_CODE }}
+        run: npm run deploy:layers
+
+      - name: Deploy Functions
+        working-directory: backend
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          S3_BUCKET_CODE: ${{ env.S3_BUCKET_CODE }}
+        run: npm run deploy:functions

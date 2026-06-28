@@ -1,4 +1,4 @@
-import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { Avatar } from '../../domain/avatar/Avatar';
@@ -37,6 +37,10 @@ export class AvatarRepository implements IAvatarRepository {
       ReturnValues: 'ALL_NEW',
     }));
     return this.#map(userId, r.Attributes!);
+  }
+
+  async delete(userId: UserId): Promise<void> {
+    await db.send(new DeleteCommand({ TableName: TABLE_NAME, Key: { PK: `USER#${userId}`, SK: 'AVATAR' } }));
   }
 
   #map(userId: UserId, i: Record<string, unknown>): Avatar {

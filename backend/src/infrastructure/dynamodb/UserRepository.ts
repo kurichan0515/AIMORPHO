@@ -1,14 +1,16 @@
 import {
-  GetCommand, PutCommand, UpdateCommand, QueryCommand, ScanCommand,
+  GetCommand, PutCommand, UpdateCommand, ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IUserRepository } from '../../domain/user/IUserRepository';
+import { IGoalRepository } from '../../domain/user/IGoalRepository';
+import { IStreakRepository } from '../../domain/user/IStreakRepository';
 import { User, UpdateProfileInput } from '../../domain/user/User';
 import { Goal } from '../../domain/user/Goal';
 import { Streak } from '../../domain/user/Streak';
 import { UserId } from '../../domain/shared/types';
 
-export class UserRepository implements IUserRepository {
+export class UserRepository implements IUserRepository, IGoalRepository, IStreakRepository {
   async findById(userId: UserId): Promise<User | null> {
     const r = await db.send(new GetCommand({ TableName: TABLE_NAME, Key: { PK: `USER#${userId}`, SK: 'PROFILE' } }));
     if (!r.Item) return null;
@@ -42,6 +44,7 @@ export class UserRepository implements IUserRepository {
         bodyBalance: user.bodyBalance,
         timezone: user.timezone,
         createdAt: user.createdAt,
+        subscriptionTier: user.subscriptionTier ?? 'free',
       },
     }));
   }
@@ -65,6 +68,17 @@ export class UserRepository implements IUserRepository {
     return (r.Items ?? []).map(item => ({
       userId: (item.PK as string).replace('USER#', '') as UserId,
       fcmToken: item.fcmToken as string,
+    }));
+  }
+
+  async deleteAccount(userId: UserId): Promise<void> {
+    const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+    await db.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'PROFILE' },
+      UpdateExpression: 'SET deleted = :true, deletedAt = :now, #ttl = :ttl',
+      ExpressionAttributeNames: { '#ttl': 'ttl' },
+      ExpressionAttributeValues: { ':true': true, ':now': new Date().toISOString(), ':ttl': ttl },
     }));
   }
 
@@ -145,6 +159,25 @@ export class UserRepository implements IUserRepository {
     }));
   }
 
+  async updateSubscriptionTier(
+    userId: UserId,
+    tier: 'free' | 'premium',
+    meta: { expiresAt: string; store: 'apple' | 'google'; productId: string; transactionId: string }
+  ): Promise<void> {
+    await db.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'PROFILE' },
+      UpdateExpression: 'SET subscriptionTier = :tier, subscriptionExpiresAt = :exp, subscriptionStore = :store, subscriptionProductId = :pid, subscriptionTransactionId = :txid',
+      ExpressionAttributeValues: {
+        ':tier': tier,
+        ':exp': meta.expiresAt,
+        ':store': meta.store,
+        ':pid': meta.productId,
+        ':txid': meta.transactionId,
+      },
+    }));
+  }
+
   #mapUser(userId: UserId, item: Record<string, unknown>): User {
     return {
       userId,
@@ -163,6 +196,13 @@ export class UserRepository implements IUserRepository {
       bodyBalance: item.bodyBalance as number | undefined,
       timezone: (item.timezone as string) ?? 'Asia/Tokyo',
       createdAt: item.createdAt as string,
+      subscriptionTier: (item.subscriptionTier as User['subscriptionTier']) ?? 'free',
+      subscriptionExpiresAt: item.subscriptionExpiresAt as string | undefined,
+      subscriptionStore: item.subscriptionStore as User['subscriptionStore'],
+      subscriptionProductId: item.subscriptionProductId as string | undefined,
+      subscriptionTransactionId: item.subscriptionTransactionId as string | undefined,
+      deleted: item.deleted as boolean | undefined,
+      deletedAt: item.deletedAt as string | undefined,
     };
   }
 }

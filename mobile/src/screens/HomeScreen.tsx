@@ -1,20 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Modal } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Modal, StatusBar } from 'react-native';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useNavigation } from '@react-navigation/native';
 import {
   getDailyAdvice, sendPenaltyAnswer,
-  getMealSuggestion, getExerciseSuggestion,
+  getMealSuggestion, getExerciseSuggestion, getAiUsage,
   MealSuggestionResult, ExerciseSuggestionResult, ExerciseSuggestionItem,
 } from '../api/ai';
 import { recordExercise } from '../api/logs';
 import api from '../api/client';
 import { useAvatarStore } from '../store/useAvatarStore';
-import { DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
+import { DEFAULT_AVATAR_LABELS, getDefaultAvatars } from '../utils/defaultAvatars';
+import { colors } from '../theme/colors';
+import AvatarSilhouette from '../components/ui/AvatarSilhouette';
+import { BellIcon, WorkoutsIcon, CheckCircleIcon, BulbIcon, MealIcon, SparkleIcon } from '../components/ui/icons';
+
+const isLimitError = (err: any) => err?.response?.status === 429;
+const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
 
 export default function HomeScreen() {
-  const navigation = useNavigation<any>();
-  const { bodyState, avatarImages } = useAvatarStore();
+  const { bodyState, avatarImages, gender } = useAvatarStore();
+  const [activeTab, setActiveTab] = useState<'nutrition' | 'workout'>('nutrition');
   const [showInterrogation, setShowInterrogation] = useState(false);
   const [interrogationMsg, setInterrogationMsg] = useState('');
   const [mealSuggestion, setMealSuggestion] = useState<MealSuggestionResult | null>(null);
@@ -22,12 +27,29 @@ export default function HomeScreen() {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [recordingExercise, setRecordingExercise] = useState<string | null>(null);
+  const [recordedExercises, setRecordedExercises] = useState<string[]>([]);
+  const [goToGym, setGoToGym] = useState(false);
 
   const { data: advice, isLoading: adviceLoading } = useQuery({
     queryKey: ['dailyAdvice'],
     queryFn: getDailyAdvice,
     staleTime: 1000 * 60 * 30,
   });
+
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => api.get('/users/me').then(r => r.data),
+  });
+
+  const { data: aiUsage, refetch: refetchUsage } = useQuery({
+    queryKey: ['aiUsage'],
+    queryFn: getAiUsage,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (profile) { setGoToGym(!!profile.hasGym); }
+  }, [profile]);
 
   useEffect(() => {
     checkPenalty();
@@ -55,14 +77,28 @@ export default function HomeScreen() {
 
   const mealSuggestionMutation = useMutation({
     mutationFn: getMealSuggestion,
-    onSuccess: (data) => { setMealSuggestion(data); setShowMealModal(true); },
-    onError: () => Alert.alert('エラー', '食事提案の取得に失敗しました'),
+    onSuccess: (data) => {
+      refetchUsage();
+      if (data.error === 'parse_failed') { Alert.alert('エラー', '食事提案の生成に失敗しました。もう一度お試しください。'); return; }
+      setMealSuggestion(data); setShowMealModal(true);
+    },
+    onError: (err) => {
+      if (isLimitError(err)) { Alert.alert('利用回数の上限', LIMIT_MESSAGE); return; }
+      Alert.alert('エラー', '食事提案の取得に失敗しました');
+    },
   });
 
   const exerciseSuggestionMutation = useMutation({
-    mutationFn: (goToGym: boolean) => getExerciseSuggestion(goToGym),
-    onSuccess: (data) => { setExerciseSuggestion(data); setShowExerciseModal(true); },
-    onError: () => Alert.alert('エラー', 'トレーニング提案の取得に失敗しました'),
+    mutationFn: (goGym: boolean) => getExerciseSuggestion(goGym),
+    onSuccess: (data) => {
+      refetchUsage();
+      if (data.error === 'parse_failed') { Alert.alert('エラー', 'トレーニング提案の生成に失敗しました。もう一度お試しください。'); return; }
+      setExerciseSuggestion(data); setShowExerciseModal(true); setRecordedExercises([]);
+    },
+    onError: (err) => {
+      if (isLimitError(err)) { Alert.alert('利用回数の上限', LIMIT_MESSAGE); return; }
+      Alert.alert('エラー', 'トレーニング提案の取得に失敗しました');
+    },
   });
 
   const recordExerciseMutation = useMutation({
@@ -72,39 +108,75 @@ export default function HomeScreen() {
       muscleGroups: item.muscle_groups,
       completed: true,
     }),
-    onSuccess: (_, item) => {
+    onSuccess: (data, item) => {
       setRecordingExercise(null);
-      Alert.alert('記録完了', `${item.name} を記録しました`);
+      setRecordedExercises(prev => [...prev, item.name]);
+      if (data.newBadges?.length) {
+        Alert.alert('バッジ獲得！', data.newBadges.map((b: any) => b.name).join('、'));
+      }
+      if (data.recovered) {
+        Alert.alert('体型回復！', 'アバターの体型が改善しました');
+      }
+      if (!data.newBadges?.length && !data.recovered) {
+        Alert.alert('記録完了', `${item.name} を記録しました`);
+      }
     },
     onError: () => { setRecordingExercise(null); Alert.alert('エラー', '記録に失敗しました'); },
   });
 
-  const handleExerciseSuggestion = () => {
-    Alert.alert(
-      'トレーニング提案',
-      '今日はジムに行きますか？',
-      [
-        { text: 'ジムに行く', onPress: () => exerciseSuggestionMutation.mutate(true) },
-        { text: '自宅・屋外でする', onPress: () => exerciseSuggestionMutation.mutate(false) },
-        { text: 'キャンセル', style: 'cancel' },
-      ]
-    );
-  };
-
   const currentAvatarUrl = avatarImages[bodyState];
+  const defaultAvatar = getDefaultAvatars(gender)[bodyState];
+
+  const bmi = profile?.heightCm && profile?.weightKg
+    ? (profile.weightKg / Math.pow(profile.heightCm / 100, 2)).toFixed(1)
+    : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* アバター表示 */}
-      <View style={styles.avatarContainer}>
+      <StatusBar barStyle="light-content" />
+
+      {/* ヘッダー */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          {currentAvatarUrl ? (
+            <Image source={{ uri: currentAvatarUrl }} style={styles.profilePhoto} />
+          ) : (
+            <View style={styles.profilePhotoPlaceholder} />
+          )}
+          <View>
+            <Text style={styles.journeyGoal}>状態: {DEFAULT_AVATAR_LABELS[bodyState]}</Text>
+          </View>
+        </View>
+        <BellIcon color={colors.text.secondary} size={24} />
+      </View>
+
+      {/* アバタービジュアル */}
+      <View style={styles.avatarSection}>
         {currentAvatarUrl ? (
-          <Image source={{ uri: currentAvatarUrl }} style={styles.avatar} resizeMode="contain" />
+          <>
+            <AvatarSilhouette width={220} height={300} style={styles.avatarSilhouette} />
+            <Image source={{ uri: currentAvatarUrl }} style={styles.avatarOverlayImage} resizeMode="contain" />
+          </>
         ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarPlaceholderText}>アバター未設定</Text>
+          <View style={[styles.defaultAvatarCircle, { backgroundColor: defaultAvatar.backgroundColor }]}>
+            <Text style={styles.defaultAvatarEmoji}>{defaultAvatar.emoji}</Text>
           </View>
         )}
-        <Text style={styles.bodyStateText}>{DEFAULT_AVATAR_LABELS[bodyState]} ({bodyState === 0 ? 'ゴール' : `あと${bodyState}段階`})</Text>
+        {bmi && (
+          <View style={[styles.dataLabel, styles.dataLabelBlue, styles.dataLabelTopRight]}>
+            <Text style={[styles.dataLabelText, { color: colors.neon.blue }]}>BMI {bmi}</Text>
+          </View>
+        )}
+        {profile?.bodyFatPct != null && (
+          <View style={[styles.dataLabel, styles.dataLabelOrange, styles.dataLabelMidLeft]}>
+            <Text style={[styles.dataLabelText, { color: colors.neon.orange }]}>体脂肪率 {profile.bodyFatPct}%</Text>
+          </View>
+        )}
+        {profile?.weightKg != null && (
+          <View style={[styles.dataLabel, styles.dataLabelBlue, styles.dataLabelBottomCenter]}>
+            <Text style={[styles.dataLabelText, { color: colors.neon.blue }]}>体重 {profile.weightKg}kg</Text>
+          </View>
+        )}
       </View>
 
       {/* ジャーニーチェック */}
@@ -122,50 +194,111 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* AIアドバイス */}
-      <View style={styles.adviceCard}>
+      {/* AI Advisor */}
+      <View style={styles.advisorCard}>
+        <View style={styles.geminiLabelRow}>
+          <SparkleIcon color={colors.neon.blue} size={12} />
+          <Text style={styles.geminiLabel}>AIアドバイザー</Text>
+        </View>
+
         {adviceLoading ? (
-          <ActivityIndicator />
+          <ActivityIndicator color={colors.neon.blue} />
+        ) : (
+          <Text style={styles.adviceGreeting}>{advice?.greeting}</Text>
+        )}
+
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'nutrition' ? styles.tabActive : styles.tabInactive]}
+            onPress={() => setActiveTab('nutrition')}
+          >
+            <Text style={[styles.tabText, activeTab === 'nutrition' ? styles.tabTextActive : styles.tabTextInactive]}>食事</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'workout' ? styles.tabActive : styles.tabInactive]}
+            onPress={() => setActiveTab('workout')}
+          >
+            <Text style={[styles.tabText, activeTab === 'workout' ? styles.tabTextActive : styles.tabTextInactive]}>トレーニング</Text>
+          </TouchableOpacity>
+        </View>
+
+        {activeTab === 'nutrition' ? (
+          <>
+            <View style={styles.mealPhoto} />
+            <Text style={styles.mealPhotoLabel}>今日の食事</Text>
+            <View style={styles.infoRow}>
+              <CheckCircleIcon color={colors.neon.green} size={18} />
+              <Text style={styles.infoRowText}>食事分析: {advice?.meal_advice}</Text>
+            </View>
+            {aiUsage && !aiUsage.premium && aiUsage.limits && (
+              <Text style={styles.usageBadge}>
+                本日残り {Math.max(0, aiUsage.limits.mealSuggestion - aiUsage.usage.mealSuggestion)}/{aiUsage.limits.mealSuggestion} 回
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.primaryBtn, styles.fullWidthBtn]}
+              onPress={() => mealSuggestionMutation.mutate()}
+              disabled={mealSuggestionMutation.isPending}
+            >
+              {mealSuggestionMutation.isPending
+                ? <ActivityIndicator color={colors.bg.primary} size="small" />
+                : (
+                  <View style={styles.btnContentRow}>
+                    <MealIcon color={colors.bg.primary} size={16} />
+                    <Text style={styles.primaryBtnText}>食事提案をもらう</Text>
+                  </View>
+                )
+              }
+            </TouchableOpacity>
+          </>
         ) : (
           <>
-            <Text style={styles.adviceGreeting}>{advice?.greeting}</Text>
-            <Text style={styles.adviceLabel}>食事アドバイス</Text>
-            <Text style={styles.adviceText}>{advice?.meal_advice}</Text>
-            <Text style={styles.adviceLabel}>運動アドバイス</Text>
-            <Text style={styles.adviceText}>{advice?.exercise_advice}</Text>
+            <View style={styles.infoRow}>
+              <BulbIcon color={colors.neon.yellow} size={18} />
+              <Text style={styles.infoRowText}>今日のアドバイス: {advice?.exercise_advice}</Text>
+            </View>
+            <TouchableOpacity style={styles.gymCheckRow} onPress={() => setGoToGym(v => !v)}>
+              <View style={[styles.checkboxBox, goToGym && styles.checkboxBoxChecked]}>
+                {goToGym && <Text style={styles.checkboxMark}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxLabel}>ジムに行く</Text>
+            </TouchableOpacity>
+            {aiUsage && !aiUsage.premium && aiUsage.limits && (
+              <Text style={styles.usageBadge}>
+                本日残り {Math.max(0, aiUsage.limits.exerciseSuggestion - aiUsage.usage.exerciseSuggestion)}/{aiUsage.limits.exerciseSuggestion} 回
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.primaryBtn, styles.fullWidthBtn]}
+              onPress={() => exerciseSuggestionMutation.mutate(goToGym)}
+              disabled={exerciseSuggestionMutation.isPending || profileLoading}
+            >
+              {exerciseSuggestionMutation.isPending
+                ? <ActivityIndicator color={colors.bg.primary} size="small" />
+                : (
+                  <View style={styles.btnContentRow}>
+                    <WorkoutsIcon color={colors.bg.primary} size={16} />
+                    <Text style={styles.primaryBtnText}>トレーニング提案</Text>
+                  </View>
+                )
+              }
+            </TouchableOpacity>
           </>
         )}
-      </View>
 
-      {/* AI提案ボタン */}
-      <View style={styles.suggestionRow}>
-        <TouchableOpacity
-          style={[styles.suggestionBtn, styles.mealSuggestionBtn]}
-          onPress={() => mealSuggestionMutation.mutate()}
-          disabled={mealSuggestionMutation.isPending}
-        >
-          {mealSuggestionMutation.isPending
-            ? <ActivityIndicator color="#FFF" size="small" />
-            : <Text style={styles.suggestionBtnText}>🍽️ 食事提案をもらう</Text>
-          }
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.suggestionBtn, styles.exerciseSuggestionBtn]}
-          onPress={handleExerciseSuggestion}
-          disabled={exerciseSuggestionMutation.isPending}
-        >
-          {exerciseSuggestionMutation.isPending
-            ? <ActivityIndicator color="#FFF" size="small" />
-            : <Text style={styles.suggestionBtnText}>💪 トレーニング提案</Text>
-          }
-        </TouchableOpacity>
+        <Text style={styles.aiDisclaimer}>
+          ※ 本アドバイスはAIによる参考情報です。医療・診断行為ではありません。
+        </Text>
       </View>
 
       {/* 食事提案モーダル */}
       <Modal visible={showMealModal} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>🍽️ 食事提案</Text>
+            <View style={styles.modalTitleRow}>
+              <MealIcon color={colors.text.primary} size={20} />
+              <Text style={styles.modalTitle}>食事提案</Text>
+            </View>
             <TouchableOpacity onPress={() => setShowMealModal(false)}>
               <Text style={styles.modalClose}>閉じる</Text>
             </TouchableOpacity>
@@ -192,7 +325,10 @@ export default function HomeScreen() {
       <Modal visible={showExerciseModal} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>💪 トレーニング提案</Text>
+            <View style={styles.modalTitleRow}>
+              <WorkoutsIcon color={colors.text.primary} size={20} />
+              <Text style={styles.modalTitle}>トレーニング提案</Text>
+            </View>
             <TouchableOpacity onPress={() => setShowExerciseModal(false)}>
               <Text style={styles.modalClose}>閉じる</Text>
             </TouchableOpacity>
@@ -209,15 +345,15 @@ export default function HomeScreen() {
                       <Text style={styles.exerciseItemMuscle}>{e.muscle_groups.join(' / ')}</Text>
                     </View>
                     <TouchableOpacity
-                      style={[styles.recordBtn, recordingExercise === e.name && styles.recordBtnDone]}
+                      style={[styles.recordBtn, (recordingExercise === e.name || recordedExercises.includes(e.name)) && styles.recordBtnDone]}
                       onPress={() => {
                         setRecordingExercise(e.name);
                         recordExerciseMutation.mutate(e);
                       }}
-                      disabled={recordExerciseMutation.isPending}
+                      disabled={recordExerciseMutation.isPending || recordedExercises.includes(e.name)}
                     >
                       <Text style={styles.recordBtnText}>
-                        {recordingExercise === e.name ? '記録中...' : '記録する'}
+                        {recordedExercises.includes(e.name) ? '記録済み' : recordingExercise === e.name ? '記録中...' : '記録する'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -233,48 +369,89 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:              { flex: 1, backgroundColor: '#F8F9FA' },
-  contentContainer:       { padding: 16, paddingBottom: 32 },
-  avatarContainer:        { alignItems: 'center', marginVertical: 24 },
-  avatar:                 { width: 180, height: 240 },
-  avatarPlaceholder:      { width: 180, height: 240, backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center', borderRadius: 12 },
-  avatarPlaceholderText:  { color: '#888', fontSize: 14 },
-  bodyStateText:          { marginTop: 8, fontSize: 12, color: '#666' },
-  interrogation:          { backgroundColor: '#FFF3CD', borderRadius: 12, padding: 16, marginBottom: 16 },
-  interrogationText:      { fontSize: 16, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
+  container:              { flex: 1, backgroundColor: colors.bg.primary },
+  contentContainer:       { paddingBottom: 32 },
+
+  header:                 { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
+  headerLeft:             { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  profilePhoto:           { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.bg.card },
+  profilePhotoPlaceholder:{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.neon.blue },
+  journeyTitle:           { fontSize: 15, fontWeight: '700', color: colors.text.primary },
+  journeyGoal:            { fontSize: 12, fontWeight: '600', color: colors.neon.orange, marginTop: 2 },
+
+  avatarSection:          { height: 380, backgroundColor: colors.bg.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarSilhouette:       { marginTop: 20 },
+  avatarOverlayImage:     { position: 'absolute', width: 200, height: 280, opacity: 0.9 },
+  defaultAvatarCircle:    { width: 200, height: 200, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
+  defaultAvatarEmoji:     { fontSize: 100 },
+  dataLabel:              { position: 'absolute', flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: 'rgba(15,20,35,0.9)', borderWidth: 1, shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  dataLabelBlue:          { borderColor: colors.neon.blue, shadowColor: colors.neon.blue },
+  dataLabelOrange:        { borderColor: colors.neon.orange, shadowColor: colors.neon.orange },
+  dataLabelText:          { fontSize: 12, fontWeight: '700' },
+  dataLabelTopRight:      { top: 60, right: 20 },
+  dataLabelMidLeft:       { top: 140, left: 20 },
+  dataLabelBottomCenter:  { bottom: 20, alignSelf: 'center' },
+
+  interrogation:          { backgroundColor: colors.bg.card, borderRadius: 12, padding: 16, margin: 20, borderWidth: 1, borderColor: colors.neon.yellow },
+  interrogationText:      { fontSize: 16, fontWeight: 'bold', marginBottom: 12, textAlign: 'center', color: colors.text.primary },
   interrogationButtons:   { flexDirection: 'row', gap: 8 },
   btn:                    { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
-  btnYes:                 { backgroundColor: '#28A745' },
-  btnNo:                  { backgroundColor: '#DC3545' },
-  btnText:                { color: '#FFF', fontWeight: 'bold' },
-  adviceCard:             { backgroundColor: '#FFF', borderRadius: 12, padding: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  adviceGreeting:         { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  adviceLabel:            { fontSize: 12, color: '#666', marginTop: 8 },
-  adviceText:             { fontSize: 14, color: '#333', marginTop: 4 },
-  suggestionRow:          { flexDirection: 'row', gap: 8, marginTop: 16 },
-  suggestionBtn:          { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center', justifyContent: 'center', minHeight: 52 },
-  mealSuggestionBtn:      { backgroundColor: '#FF6B35' },
-  exerciseSuggestionBtn:  { backgroundColor: '#34C759' },
-  suggestionBtnText:      { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
-  modalContainer:         { flex: 1, backgroundColor: '#F8F9FA' },
-  modalHeader:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  modalTitle:             { fontSize: 18, fontWeight: 'bold' },
-  modalClose:             { fontSize: 15, color: '#007AFF' },
+  btnYes:                 { backgroundColor: colors.neon.green },
+  btnNo:                  { backgroundColor: colors.neon.orange },
+  btnText:                { color: colors.bg.primary, fontWeight: 'bold' },
+
+  advisorCard:            { marginHorizontal: 20, marginTop: 8, marginBottom: 24, padding: 16, borderRadius: 16, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.neon.blue },
+  geminiLabelRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
+  geminiLabel:            { fontSize: 11, fontWeight: '600', color: colors.neon.blue },
+  adviceGreeting:         { fontSize: 15, fontWeight: '700', color: colors.text.primary, marginBottom: 14 },
+  aiDisclaimer:           { fontSize: 10, color: colors.text.secondary, marginTop: 12, lineHeight: 14 },
+
+  tabRow:                 { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  tab:                    { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1 },
+  tabActive:              { backgroundColor: 'rgba(47,200,255,0.18)', borderColor: colors.neon.blue },
+  tabInactive:            { backgroundColor: 'transparent', borderColor: colors.text.muted },
+  tabText:                { fontSize: 12, fontWeight: '700' },
+  tabTextActive:          { color: colors.neon.blue },
+  tabTextInactive:        { color: colors.text.muted },
+
+  mealPhoto:              { height: 110, borderRadius: 12, backgroundColor: colors.bg.cardAlt, marginBottom: 8 },
+  mealPhotoLabel:         { fontSize: 11, fontWeight: '600', color: colors.text.secondary, marginBottom: 12 },
+
+  infoRow:                { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 14 },
+  infoRowText:            { flex: 1, fontSize: 12, color: colors.text.primary, lineHeight: 18 },
+
+  primaryBtn:             { borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 48, backgroundColor: colors.neon.blue, shadowColor: colors.neon.blue, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  fullWidthBtn:           { alignSelf: 'stretch' },
+  primaryBtnText:         { color: colors.bg.primary, fontWeight: '700', fontSize: 14 },
+  btnContentRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
+
+  usageBadge:             { fontSize: 11, color: colors.text.muted, textAlign: 'right', marginBottom: 4 },
+  gymCheckRow:            { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  checkboxBox:            { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: colors.text.muted, alignItems: 'center', justifyContent: 'center' },
+  checkboxBoxChecked:     { backgroundColor: colors.neon.green, borderColor: colors.neon.green },
+  checkboxMark:           { color: colors.bg.primary, fontSize: 12, fontWeight: 'bold' },
+  checkboxLabel:          { fontSize: 13, color: colors.text.secondary },
+
+  modalContainer:         { flex: 1, backgroundColor: colors.bg.primary },
+  modalHeader:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: colors.bg.card, borderBottomWidth: 1, borderBottomColor: colors.border.subtle },
+  modalTitleRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modalTitle:             { fontSize: 18, fontWeight: 'bold', color: colors.text.primary },
+  modalClose:             { fontSize: 15, color: colors.neon.blue },
   modalBody:              { padding: 16 },
-  mealSuggestionComment:  { fontSize: 15, color: '#333', marginBottom: 16, lineHeight: 22 },
-  mealItemCard:           { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 10, elevation: 1 },
+  mealSuggestionComment:  { fontSize: 15, color: colors.text.secondary, marginBottom: 16, lineHeight: 22 },
+  mealItemCard:           { backgroundColor: colors.bg.card, borderRadius: 12, padding: 14, marginBottom: 10 },
   mealItemHeader:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  mealItemName:           { fontSize: 15, fontWeight: 'bold', flex: 1 },
-  mealItemKcal:           { fontSize: 15, fontWeight: 'bold', color: '#FF6B35' },
-  mealItemMacro:          { fontSize: 12, color: '#888', marginBottom: 4 },
-  mealItemReason:         { fontSize: 12, color: '#555', fontStyle: 'italic' },
-  exerciseItemCard:       { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 10, elevation: 1 },
+  mealItemName:           { fontSize: 15, fontWeight: 'bold', flex: 1, color: colors.text.primary },
+  mealItemKcal:           { fontSize: 15, fontWeight: 'bold', color: colors.neon.orange },
+  mealItemMacro:          { fontSize: 12, color: colors.text.secondary, marginBottom: 4 },
+  mealItemReason:         { fontSize: 12, color: colors.text.muted, fontStyle: 'italic' },
+  exerciseItemCard:       { backgroundColor: colors.bg.card, borderRadius: 12, padding: 14, marginBottom: 10 },
   exerciseItemHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  exerciseItemName:       { fontSize: 15, fontWeight: 'bold', marginBottom: 2 },
-  exerciseItemSets:       { fontSize: 12, color: '#555', marginBottom: 2 },
-  exerciseItemMuscle:     { fontSize: 11, color: '#007AFF' },
-  exerciseItemReason:     { fontSize: 12, color: '#888', fontStyle: 'italic' },
-  recordBtn:              { backgroundColor: '#34C759', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  recordBtnDone:          { backgroundColor: '#999' },
-  recordBtnText:          { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
+  exerciseItemName:       { fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: colors.text.primary },
+  exerciseItemSets:       { fontSize: 12, color: colors.text.secondary, marginBottom: 2 },
+  exerciseItemMuscle:     { fontSize: 11, color: colors.neon.blue },
+  exerciseItemReason:     { fontSize: 12, color: colors.text.muted, fontStyle: 'italic' },
+  recordBtn:              { backgroundColor: colors.neon.green, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  recordBtnDone:          { backgroundColor: colors.text.muted },
+  recordBtnText:          { color: colors.bg.primary, fontWeight: 'bold', fontSize: 13 },
 });

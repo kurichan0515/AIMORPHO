@@ -1,175 +1,172 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, Switch,
-} from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
+import { colors } from '../theme/colors';
+import { useIAP } from '../hooks/useIAP';
 
-const LIFESTYLE_OPTIONS = [
-  { value: 'sedentary',   label: 'ほぼ運動しない (×1.2)' },
-  { value: 'light',       label: '軽い運動 (×1.375)' },
-  { value: 'moderate',    label: '週3〜5回 (×1.55)' },
-  { value: 'active',      label: '毎日運動 (×1.725)' },
-  { value: 'very_active', label: 'ハードトレーニング (×1.9)' },
-];
+const LIFESTYLE_LABELS: Record<string, string> = {
+  sedentary:  'ほぼ運動しない',
+  light:      '週1〜2回',
+  moderate:   '週3〜5回',
+  active:     '毎日運動',
+  very_active:'ハードトレーニング',
+};
 
-const AI_TONE_OPTIONS = [
-  { value: 'friendly', label: 'フレンドリー' },
-  { value: 'strict',   label: '厳しめ' },
-  { value: 'gentle',   label: 'やさしい' },
-  { value: 'cool',     label: 'クール' },
-];
+const AI_TONE_LABELS: Record<string, string> = {
+  friendly: 'フレンドリー',
+  strict:   '厳しめ',
+  gentle:   'やさしい',
+  cool:     'クール',
+};
+
+const GOAL_MODE_LABELS: Record<string, string> = {
+  diet:     '減量',
+  maintain: '体型維持',
+  bulk:     '増量',
+};
+
+function Section({ label, sub }: { label: string; sub: string }) {
+  return (
+    <View style={sec.row}>
+      <View style={sec.bar} />
+      <Text style={sec.sub}>{sub}</Text>
+      <Text style={sec.label}>{label}</Text>
+    </View>
+  );
+}
+
+function MenuRow({ label, value, onPress }: { label: string; value?: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={m.row} onPress={onPress}>
+      <Text style={m.label}>{label}</Text>
+      <View style={m.right}>
+        {value ? <Text style={m.value}>{value}</Text> : null}
+        <Text style={m.arrow}>›</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function ProfileScreen() {
   const { logout, isAnonymous, resetGuestData } = useAuthStore();
   const navigation = useNavigation<any>();
   const qc = useQueryClient();
+  const { purchase } = useIAP();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: () => api.get('/users/me').then(r => r.data),
   });
-
   const { data: goal } = useQuery({
     queryKey: ['goal'],
     queryFn: () => api.get('/users/me/goal').then(r => r.data).catch(() => null),
   });
-
   const { data: streak } = useQuery({
     queryKey: ['streak'],
     queryFn: () => api.get('/users/me/streak').then(r => r.data),
   });
-
-  const [form, setForm] = useState({
-    displayName: '', age: '', heightCm: '', weightKg: '',
-    lifestyle: 'moderate', aiTone: 'friendly', hasGym: false,
-  });
-  const [goalForm, setGoalForm] = useState({ targetWeight: '', mode: 'maintain' as 'diet' | 'maintain' | 'bulk' });
-
-  useEffect(() => {
-    if (profile) setForm({
-      displayName: profile.displayName || '',
-      age: String(profile.age || ''),
-      heightCm: String(profile.heightCm || ''),
-      weightKg: String(profile.weightKg || ''),
-      lifestyle: profile.lifestyle || 'moderate',
-      aiTone: profile.aiTone || 'friendly',
-      hasGym: profile.hasGym ?? false,
-    });
-  }, [profile]);
-
-  useEffect(() => {
-    if (goal) setGoalForm({ targetWeight: String(goal.targetWeight || ''), mode: goal.mode || 'maintain' });
-  }, [goal]);
-
-  const profileMutation = useMutation({
-    mutationFn: () => api.put('/users/me', {
-      displayName: form.displayName,
-      age: parseInt(form.age, 10) || undefined,
-      heightCm: parseFloat(form.heightCm) || undefined,
-      weightKg: parseFloat(form.weightKg) || undefined,
-      lifestyle: form.lifestyle,
-      aiTone: form.aiTone,
-      hasGym: form.hasGym,
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['profile'] }); Alert.alert('保存しました'); },
-    onError: () => Alert.alert('エラー', '保存に失敗しました'),
+  const { data: badges } = useQuery({
+    queryKey: ['badges'],
+    queryFn: () => api.get('/users/me/badges').then(r => r.data as any[]),
   });
 
-  const goalMutation = useMutation({
-    mutationFn: () => api.post('/users/me/goal', {
-      targetWeight: parseFloat(goalForm.targetWeight),
-      mode: goalForm.mode,
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['goal'] }); Alert.alert('目標を設定しました'); },
-    onError: () => Alert.alert('エラー', '設定に失敗しました'),
-  });
+  const heightCm = profile?.heightCm;
+  const weightKg = profile?.weightKg;
+  const bodyValue = [heightCm && `${heightCm}cm`, weightKg && `${weightKg}kg`].filter(Boolean).join(' · ') || undefined;
+  const lifestyleValue = profile?.lifestyle ? LIFESTYLE_LABELS[profile.lifestyle] : undefined;
+  const aiToneValue = profile?.aiTone ? AI_TONE_LABELS[profile.aiTone] : undefined;
+  const goalValue = goal?.mode ? GOAL_MODE_LABELS[goal.mode] : undefined;
+  const earnedCount = badges?.length ?? 0;
 
-  const f = (key: keyof typeof form, val: string | boolean) => setForm(prev => ({ ...prev, [key]: val }));
+  const handleDeleteAccount = async () => {
+    try {
+      await api.delete('/users/me');
+      qc.clear();
+      logout();
+    } catch {
+      Alert.alert('エラー', '削除に失敗しました。しばらく経ってから再度お試しください。');
+    }
+  };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      {/* ストリーク */}
-      <View style={styles.streakCard}>
-        <Text style={styles.streakDays}>{streak?.currentDays || 0}日</Text>
-        <Text style={styles.streakLabel}>連続ログイン中</Text>
-        <Text style={styles.streakBest}>最高 {streak?.longestDays || 0}日</Text>
-      </View>
-
-      {/* プロフィール */}
-      <Text style={styles.sectionTitle}>プロフィール</Text>
-      <TextInput style={styles.input} placeholder="ニックネーム" value={form.displayName} onChangeText={v => f('displayName', v)} />
-      <View style={styles.row}>
-        <TextInput style={[styles.input, styles.half]} placeholder="年齢" value={form.age} onChangeText={v => f('age', v)} keyboardType="number-pad" />
-        <TextInput style={[styles.input, styles.half]} placeholder="身長 (cm)" value={form.heightCm} onChangeText={v => f('heightCm', v)} keyboardType="decimal-pad" />
-      </View>
-      <TextInput style={styles.input} placeholder="現在の体重 (kg)" value={form.weightKg} onChangeText={v => f('weightKg', v)} keyboardType="decimal-pad" />
-
-      <Text style={styles.label}>活動レベル</Text>
-      {LIFESTYLE_OPTIONS.map(o => (
-        <TouchableOpacity key={o.value} style={[styles.optionRow, form.lifestyle === o.value && styles.optionRowActive]} onPress={() => f('lifestyle', o.value)}>
-          <Text style={[styles.optionText, form.lifestyle === o.value && styles.optionTextActive]}>{o.label}</Text>
-        </TouchableOpacity>
-      ))}
-
-      <View style={styles.switchRow}>
-        <View>
-          <Text style={styles.label}>ジム通い</Text>
-          <Text style={styles.switchDesc}>ONにするとジムメニューを運動提案に含めます</Text>
+    <ScrollView
+      style={s.root}
+      contentContainerStyle={s.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={s.heroCard}>
+        <View style={s.heroLeft}>
+          <Text style={s.heroName}>{profile?.displayName || 'あなた'}</Text>
+          <Text style={s.heroStats}>{bodyValue || '身体データ未設定'}</Text>
         </View>
-        <Switch value={form.hasGym} onValueChange={v => f('hasGym', v)} trackColor={{ true: '#007AFF' }} />
+        <View style={s.streakBadge}>
+          <Text style={s.streakNum}>{streak?.currentDays || 0}</Text>
+          <Text style={s.streakUnit}>日</Text>
+          <Text style={s.streakLabel}>継続</Text>
+          {(streak?.longestDays ?? 0) > 0 && (
+            <Text style={s.streakBest}>最高 {streak.longestDays}日</Text>
+          )}
+        </View>
       </View>
 
-      <Text style={styles.label}>AIの口調</Text>
-      <View style={styles.toneRow}>
-        {AI_TONE_OPTIONS.map(o => (
-          <TouchableOpacity key={o.value} style={[styles.toneChip, form.aiTone === o.value && styles.toneChipActive]} onPress={() => f('aiTone', o.value)}>
-            <Text style={[styles.toneChipText, form.aiTone === o.value && styles.toneChipTextActive]}>{o.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <Section label="身体データ" sub="BODY" />
+      <View style={s.card}>
+        <MenuRow label="身体データ" value={bodyValue} onPress={() => navigation.navigate('BodyEdit')} />
       </View>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={() => profileMutation.mutate()} disabled={profileMutation.isPending}>
-        <Text style={styles.saveBtnText}>プロフィールを保存</Text>
-      </TouchableOpacity>
-
-      {/* 目標 */}
-      <Text style={styles.sectionTitle}>目標設定</Text>
-      <TextInput style={styles.input} placeholder="目標体重 (kg)" value={goalForm.targetWeight} onChangeText={v => setGoalForm(g => ({ ...g, targetWeight: v }))} keyboardType="decimal-pad" />
-      <View style={styles.row}>
-        {([
-          { value: 'diet',     label: '🔥 減量' },
-          { value: 'maintain', label: '⚖️ 維持' },
-          { value: 'bulk',     label: '💪 増量' },
-        ] as const).map(m => (
-          <TouchableOpacity key={m.value} style={[styles.modeBtn, goalForm.mode === m.value && styles.modeBtnActive]} onPress={() => setGoalForm(g => ({ ...g, mode: m.value }))}>
-            <Text style={[styles.modeBtnText, goalForm.mode === m.value && styles.modeBtnTextActive]}>{m.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <Section label="トレーニング" sub="TRAINING" />
+      <View style={s.card}>
+        <MenuRow label="トレーニング設定" value={lifestyleValue} onPress={() => navigation.navigate('TrainingEdit')} />
       </View>
-      <TouchableOpacity style={styles.saveBtn} onPress={() => goalMutation.mutate()} disabled={goalMutation.isPending}>
-        <Text style={styles.saveBtnText}>目標を設定</Text>
-      </TouchableOpacity>
 
-      {/* アカウント */}
-      <Text style={styles.sectionTitle}>アカウント</Text>
+      <Section label="AIコーチ" sub="AI COACH" />
+      <View style={s.card}>
+        <MenuRow label="口調スタイル" value={aiToneValue} onPress={() => navigation.navigate('AICoachEdit')} />
+      </View>
+
+      <Section label="目標" sub="GOAL" />
+      <View style={s.card}>
+        <MenuRow label="目標設定" value={goalValue} onPress={() => navigation.navigate('GoalEdit')} />
+      </View>
+
+      <Section label="その他" sub="OTHER" />
+      <View style={s.card}>
+        <MenuRow label="アバター設定" onPress={() => navigation.navigate('AvatarSetup')} />
+        {earnedCount > 0 && (
+          <>
+            <View style={s.divider} />
+            <MenuRow
+              label="リワード"
+              value={`${earnedCount}件取得済み`}
+              onPress={() => navigation.navigate('Rewards')}
+            />
+          </>
+        )}
+      </View>
+
+      <Section label="アカウント" sub="ACCOUNT" />
       {isAnonymous ? (
-        <View style={styles.accountBox}>
-          <Text style={styles.accountAnonymousLabel}>ゲストモードで利用中</Text>
-          <Text style={styles.accountAnonymousDesc}>
-            メールアドレスを登録すると、機種変更・再インストール時にデータを復元できます。
+        <View style={s.card}>
+          <View style={s.accountTagRow}>
+            <View style={[s.accountTag, { borderColor: colors.neon.orange }]}>
+              <Text style={[s.accountTagText, { color: colors.neon.orange }]}>GUEST</Text>
+            </View>
+            <Text style={s.accountTagDesc}>ゲストモードで利用中</Text>
+          </View>
+          <Text style={s.accountDesc}>
+            アカウント登録でデータをバックアップ。機種変更・再インストール時でも引き継げます。
           </Text>
-          <TouchableOpacity style={styles.accountBtn} onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.accountBtnText}>アカウント登録（データを保護する）</Text>
+          <TouchableOpacity style={[s.primaryBtn, { margin: 16, marginTop: 14 }]} onPress={() => navigation.navigate('Register')}>
+            <Text style={s.primaryBtnText}>アカウント登録（無料）</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.accountBtnSecondary} onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.accountBtnSecondaryText}>既存アカウントでログインして引き継ぐ</Text>
+          <TouchableOpacity style={[s.outlineBtn, { margin: 16, marginTop: 0 }]} onPress={() => navigation.navigate('Login')}>
+            <Text style={s.outlineBtnText}>既存アカウントでログイン</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.resetBtn}
+            style={s.dangerBtn}
             onPress={() => Alert.alert(
               'データをリセット',
               'すべての記録・アバター・目標が削除されます。この操作は取り消せません。',
@@ -179,68 +176,111 @@ export default function ProfileScreen() {
               ]
             )}
           >
-            <Text style={styles.resetBtnText}>データをリセット（最初からやり直す）</Text>
+            <Text style={s.dangerBtnText}>データをリセット</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.accountBox}>
-          <Text style={styles.accountRegisteredLabel}>登録済みアカウント</Text>
-          <Text style={styles.accountEmail}>{profile?.email ?? ''}</Text>
+        <View style={s.card}>
+          <View style={s.accountTagRow}>
+            <View style={[s.accountTag, { borderColor: colors.neon.green }]}>
+              <Text style={[s.accountTagText, { color: colors.neon.green }]}>REGISTERED</Text>
+            </View>
+            {profile?.subscriptionTier === 'premium' ? (
+              <View style={[s.accountTag, { borderColor: colors.neon.yellow }]}>
+                <Text style={[s.accountTagText, { color: colors.neon.yellow }]}>👑 PREMIUM</Text>
+              </View>
+            ) : (
+              <View style={[s.accountTag, { borderColor: colors.text.muted }]}>
+                <Text style={[s.accountTagText, { color: colors.text.muted }]}>FREE</Text>
+              </View>
+            )}
+          </View>
+          <Text style={s.accountEmail}>{profile?.email ?? ''}</Text>
+          {profile?.subscriptionTier !== 'premium' && (
+            <TouchableOpacity
+              style={[s.primaryBtn, { margin: 16, marginTop: 12, backgroundColor: colors.neon.yellow }]}
+              onPress={purchase}
+            >
+              <Text style={[s.primaryBtnText, { color: '#000' }]}>👑 プレミアムにアップグレード</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={() => Alert.alert('ログアウト', 'ログアウトすると、次回起動時はゲストとして再スタートします。', [
-              { text: 'キャンセル', style: 'cancel' },
-              { text: 'ログアウト', style: 'destructive', onPress: () => { qc.clear(); logout(); } },
-            ])}
+            style={[s.outlineBtn, { margin: 16, marginTop: 14, borderColor: colors.danger }]}
+            onPress={() => Alert.alert(
+              'ログアウト',
+              'ログアウトすると次回起動時はゲストとして再スタートします。',
+              [
+                { text: 'キャンセル', style: 'cancel' },
+                { text: 'ログアウト', style: 'destructive', onPress: () => { qc.clear(); logout(); } },
+              ]
+            )}
           >
-            <Text style={styles.logoutBtnText}>ログアウト</Text>
+            <Text style={[s.outlineBtnText, { color: colors.danger }]}>ログアウト</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.dangerBtn}
+            onPress={() => Alert.alert(
+              'アカウントを削除',
+              'アカウントを削除すると、すべての記録・アバターが失われます。\nこの操作は取り消せません。',
+              [
+                { text: 'キャンセル', style: 'cancel' },
+                { text: '削除する', style: 'destructive', onPress: handleDeleteAccount },
+              ]
+            )}
+          >
+            <Text style={s.dangerBtnText}>アカウントを削除する</Text>
           </TouchableOpacity>
         </View>
       )}
-      <View style={{ height: 40 }} />
+
+      <View style={{ height: 48 }} />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container:          { flex: 1, backgroundColor: '#F8F9FA', padding: 16 },
-  streakCard:         { backgroundColor: '#007AFF', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 20 },
-  streakDays:         { fontSize: 48, fontWeight: 'bold', color: '#FFF' },
-  streakLabel:        { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  streakBest:         { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
-  sectionTitle:       { fontSize: 17, fontWeight: 'bold', marginTop: 16, marginBottom: 10 },
-  label:              { fontSize: 13, color: '#666', marginTop: 12, marginBottom: 6 },
-  input:              { backgroundColor: '#FFF', borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 8, elevation: 1 },
-  row:                { flexDirection: 'row', gap: 8 },
-  half:               { flex: 1 },
-  optionRow:          { backgroundColor: '#FFF', borderRadius: 8, padding: 12, marginBottom: 4, borderWidth: 2, borderColor: 'transparent' },
-  optionRowActive:    { borderColor: '#007AFF', backgroundColor: '#E8F4FF' },
-  optionText:         { fontSize: 14, color: '#333' },
-  optionTextActive:   { color: '#007AFF', fontWeight: '600' },
-  toneRow:            { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  toneChip:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#E8E8E8' },
-  toneChipActive:     { backgroundColor: '#007AFF' },
-  toneChipText:       { fontSize: 13, color: '#333' },
-  toneChipTextActive: { color: '#FFF' },
-  saveBtn:            { backgroundColor: '#007AFF', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8, marginBottom: 4 },
-  saveBtnText:        { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
-  modeBtn:            { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#EEE', alignItems: 'center' },
-  modeBtnActive:      { backgroundColor: '#007AFF' },
-  modeBtnText:        { fontWeight: 'bold', color: '#555' },
-  modeBtnTextActive:  { color: '#FFF' },
-  accountBox:                { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 8, elevation: 1 },
-  accountAnonymousLabel:     { fontSize: 14, fontWeight: '600', color: '#FF9500', marginBottom: 6 },
-  accountAnonymousDesc:      { fontSize: 13, color: '#666', marginBottom: 12, lineHeight: 20 },
-  accountBtn:                { backgroundColor: '#007AFF', borderRadius: 10, padding: 13, alignItems: 'center', marginBottom: 8 },
-  accountBtnText:            { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
-  accountBtnSecondary:       { borderWidth: 1, borderColor: '#007AFF', borderRadius: 10, padding: 13, alignItems: 'center' },
-  accountBtnSecondaryText:   { color: '#007AFF', fontWeight: '600', fontSize: 14 },
-  switchRow:                 { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 10, padding: 14, marginBottom: 8, elevation: 1 },
-  switchDesc:                { fontSize: 11, color: '#888', marginTop: 2 },
-  resetBtn:                  { marginTop: 12, padding: 12, alignItems: 'center' },
-  resetBtnText:              { color: '#FF3B30', fontSize: 13 },
-  accountRegisteredLabel:    { fontSize: 13, color: '#34C759', fontWeight: '600', marginBottom: 4 },
-  accountEmail:              { fontSize: 14, color: '#333', marginBottom: 12 },
-  logoutBtn:                 { padding: 13, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
-  logoutBtnText:             { color: '#FF3B30', fontWeight: 'bold', fontSize: 14 },
+const sec = StyleSheet.create({
+  row:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 12 },
+  bar:   { width: 3, height: 16, borderRadius: 2, backgroundColor: colors.neon.blue },
+  sub:   { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: colors.neon.blue },
+  label: { fontSize: 15, fontWeight: '700', color: colors.text.primary },
+});
+
+const m = StyleSheet.create({
+  row:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16 },
+  label: { flex: 1, fontSize: 15, color: colors.text.primary, fontWeight: '500' },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  value: { fontSize: 14, color: colors.text.muted },
+  arrow: { fontSize: 20, color: colors.text.muted, fontWeight: '300', lineHeight: 24 },
+});
+
+const s = StyleSheet.create({
+  root:      { flex: 1, backgroundColor: colors.bg.primary },
+  container: { padding: 16 },
+
+  heroCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border.subtle },
+  heroLeft:    { flex: 1 },
+  heroName:    { fontSize: 22, fontWeight: '800', color: colors.text.primary, marginBottom: 4 },
+  heroStats:   { fontSize: 13, color: colors.text.muted },
+  streakBadge: { alignItems: 'center', backgroundColor: 'rgba(47,200,255,0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border.blue, minWidth: 72 },
+  streakNum:   { fontSize: 32, fontWeight: '800', color: colors.neon.blue, lineHeight: 38 },
+  streakUnit:  { fontSize: 13, color: colors.neon.blue, fontWeight: '600' },
+  streakLabel: { fontSize: 10, color: colors.text.muted, letterSpacing: 0.5, marginTop: 2 },
+  streakBest:  { fontSize: 10, color: colors.text.muted, marginTop: 2 },
+
+  card:    { backgroundColor: colors.bg.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border.subtle, overflow: 'hidden' },
+  divider: { height: 1, backgroundColor: colors.border.subtle, marginHorizontal: 16 },
+
+  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  primaryBtnText: { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
+  outlineBtn:     { borderWidth: 1, borderColor: colors.neon.blue, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  outlineBtnText: { color: colors.neon.blue, fontSize: 14, fontWeight: '600' },
+  dangerBtn:      { paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center', marginBottom: 8 },
+  dangerBtnText:  { color: colors.danger, fontSize: 13 },
+
+  accountTagRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, paddingBottom: 8 },
+  accountTag:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1 },
+  accountTagText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  accountTagDesc: { fontSize: 13, color: colors.text.secondary },
+  accountDesc:    { fontSize: 13, color: colors.text.muted, lineHeight: 20, paddingHorizontal: 16 },
+  accountEmail:   { fontSize: 14, color: colors.text.secondary, paddingHorizontal: 16 },
 });

@@ -1,0 +1,19 @@
+aws_region          = "ap-northeast-1"
+environment         = "prod"
+dynamodb_table_name = "aimorpho"
+s3_bucket_name      = "aimorpho-images"
+
+jwt_secret     = "your-strong-jwt-secret-here"
+gemini_api_key = "your-gemini-api-key-here"
+
+apple_iap = {
+  key_id      = "XXXXXXXXXX"
+  issuer_id   = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  private_key = "-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
+  bundle_id   = "com.yourcompany.aimorpho"
+}
+
+google_play = {
+  service_account_json = "{\"type\":\"service_account\",\"project_id\":\"...\",\"private_key_id\":\"...\",\"private_key\":\"-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----\\n\",\"client_email\":\"...@...iam.gserviceaccount.com\",\"client_id\":\"...\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
+  package_name         = "com.yourcompany.aimorpho"
+}

@@ -1,10 +1,129 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { recordWeight, getWeightHistory } from '../api/logs';
+import { colors } from '../theme/colors';
+
+const CHART_WIDTH = 320;
+const CHART_HEIGHT = 160;
+const CHART_PADDING = 24;
+
+type WeightRecord = { recordedAt: string; weightKg: number; bodyFatPct?: number | null };
+
+const MOCK_WEIGHT_DATA: WeightRecord[] = [
+  { recordedAt: '2026-06-01', weightKg: 72.4, bodyFatPct: 22.1 },
+  { recordedAt: '2026-06-03', weightKg: 72.1, bodyFatPct: 21.8 },
+  { recordedAt: '2026-06-05', weightKg: 71.8, bodyFatPct: 21.5 },
+  { recordedAt: '2026-06-07', weightKg: 72.0, bodyFatPct: 21.6 },
+  { recordedAt: '2026-06-09', weightKg: 71.5, bodyFatPct: 21.2 },
+  { recordedAt: '2026-06-11', weightKg: 71.2, bodyFatPct: 20.9 },
+  { recordedAt: '2026-06-13', weightKg: 70.9, bodyFatPct: 20.5 },
+];
+
+const INNER_W = CHART_WIDTH - CHART_PADDING * 2;
+const INNER_H = CHART_HEIGHT - CHART_PADDING * 2;
+
+function toPoints(values: number[], len: number): { x: number; y: number }[] {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return values.map((v, i) => ({
+    x: CHART_PADDING + (i / (len - 1)) * INNER_W,
+    y: CHART_PADDING + INNER_H - ((v - min) / range) * INNER_H,
+  }));
+}
+
+function WeightChart({ data }: { data: WeightRecord[] }) {
+  const chartData = data.length >= 2 ? data : MOCK_WEIGHT_DATA;
+  const usedMock = data.length < 2;
+
+  const weights = chartData.map(d => d.weightKg);
+  const fatData = chartData.filter(d => d.bodyFatPct != null);
+  const hasFat = fatData.length >= 2;
+
+  const wPoints = toPoints(weights, chartData.length);
+
+  const fatPoints = hasFat
+    ? toPoints(
+        fatData.map(d => d.bodyFatPct!),
+        fatData.length,
+      ).map((p, i) => {
+        const origIdx = chartData.indexOf(fatData[i]);
+        return { ...p, x: CHART_PADDING + (origIdx / (chartData.length - 1)) * INNER_W };
+      })
+    : [];
+
+  const wMin = Math.min(...weights);
+  const wMax = Math.max(...weights);
+  const fMin = hasFat ? Math.min(...fatData.map(d => d.bodyFatPct!)) : 0;
+  const fMax = hasFat ? Math.max(...fatData.map(d => d.bodyFatPct!)) : 0;
+
+  const lineColor = usedMock ? colors.text.muted : colors.neon.blue;
+  const fatColor = usedMock ? colors.text.muted : colors.neon.orange;
+  const dash = usedMock ? '6,4' : undefined;
+
+  return (
+    <View style={styles.chartCard}>
+      {usedMock && <Text style={styles.mockLabel}>サンプルデータ</Text>}
+
+      {/* 凡例 */}
+      <View style={styles.chartLegend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.neon.blue }]} />
+          <Text style={styles.legendText}>体重</Text>
+          <Text style={styles.legendRange}>{wMin}–{wMax} kg</Text>
+        </View>
+        {hasFat && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: colors.neon.orange }]} />
+            <Text style={styles.legendText}>体脂肪率</Text>
+            <Text style={styles.legendRange}>{fMin}–{fMax} %</Text>
+          </View>
+        )}
+      </View>
+
+      <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+        {/* 体重ライン */}
+        <Polyline
+          points={wPoints.map(p => `${p.x},${p.y}`).join(' ')}
+          fill="none"
+          stroke={lineColor}
+          strokeWidth={2}
+          strokeDasharray={dash}
+        />
+        {wPoints.map((p, i) => (
+          <Circle key={`w${i}`} cx={p.x} cy={p.y} r={3} fill={lineColor} />
+        ))}
+
+        {/* 体脂肪ライン */}
+        {hasFat && (
+          <>
+            <Polyline
+              points={fatPoints.map(p => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke={fatColor}
+              strokeWidth={2}
+              strokeDasharray={dash}
+            />
+            {fatPoints.map((p, i) => (
+              <Circle key={`f${i}`} cx={p.x} cy={p.y} r={3} fill={fatColor} />
+            ))}
+          </>
+        )}
+      </Svg>
+
+      <View style={styles.chartFooterRow}>
+        <Text style={styles.chartDateText}>{chartData[0].recordedAt?.slice(5, 10)}</Text>
+        <Text style={styles.chartDateText}>{chartData[chartData.length - 1].recordedAt?.slice(5, 10)}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function WeightLogScreen() {
   const [input, setInput] = useState('');
+  const [bodyFatInput, setBodyFatInput] = useState('');
 
   const { data: history, refetch } = useQuery({
     queryKey: ['weightHistory'],
@@ -12,9 +131,10 @@ export default function WeightLogScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: (kg: number) => recordWeight(kg),
+    mutationFn: ({ kg, bodyFatPct }: { kg: number; bodyFatPct?: number }) => recordWeight(kg, bodyFatPct),
     onSuccess: (data) => {
       setInput('');
+      setBodyFatInput('');
       refetch();
       if (data.newBadges?.length) {
         Alert.alert('バッジ獲得！', data.newBadges.map((b: any) => b.name).join('、'));
@@ -29,56 +149,110 @@ export default function WeightLogScreen() {
       Alert.alert('エラー', '正しい体重を入力してください');
       return;
     }
-    mutation.mutate(kg);
+
+    let bodyFatPct: number | undefined;
+    if (bodyFatInput.trim()) {
+      bodyFatPct = parseFloat(bodyFatInput);
+      if (isNaN(bodyFatPct) || bodyFatPct < 0 || bodyFatPct > 100) {
+        Alert.alert('エラー', '正しい体脂肪率を入力してください');
+        return;
+      }
+    }
+
+    mutation.mutate({ kg, bodyFatPct });
   };
 
-  const latest = history?.[0]?.weightKg;
+  const latest = history?.[0];
+  const chartData = [...(history || [])].reverse();
 
   return (
-    <View style={styles.container}>
-      {latest !== undefined && (
+    <ScrollView style={styles.container}>
+      {latest && (
         <View style={styles.latestCard}>
           <Text style={styles.latestLabel}>直近の体重</Text>
-          <Text style={styles.latestValue}>{latest} kg</Text>
+          <Text style={styles.latestValue}>{latest.weightKg} kg</Text>
+          {latest.bodyFatPct != null && (
+            <Text style={styles.latestBodyFat}>体脂肪率 {latest.bodyFatPct}%</Text>
+          )}
         </View>
       )}
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          keyboardType="decimal-pad"
-          placeholder="体重 (kg)"
-          placeholderTextColor="#AAA"
-        />
+      <View style={styles.formCard}>
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>体重 (kg) *</Text>
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            keyboardType="decimal-pad"
+            placeholder="65.0"
+            placeholderTextColor={colors.text.muted}
+          />
+        </View>
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>体脂肪率 (%)</Text>
+          <TextInput
+            style={styles.input}
+            value={bodyFatInput}
+            onChangeText={setBodyFatInput}
+            keyboardType="decimal-pad"
+            placeholder="任意"
+            placeholderTextColor={colors.text.muted}
+          />
+        </View>
         <TouchableOpacity style={styles.submitBtn} onPress={submit} disabled={mutation.isPending}>
           <Text style={styles.submitBtnText}>記録</Text>
         </TouchableOpacity>
       </View>
 
+      <Text style={styles.sectionTitle}>推移</Text>
+      <WeightChart data={chartData} />
+
       <Text style={styles.sectionTitle}>履歴</Text>
       {(history || []).map((item: any) => (
         <View key={item.SK} style={styles.historyItem}>
           <Text style={styles.historyDate}>{item.recordedAt?.slice(0, 10)}</Text>
-          <Text style={styles.historyWeight}>{item.weightKg} kg</Text>
+          <View style={styles.historyValues}>
+            <Text style={styles.historyWeight}>{item.weightKg} kg</Text>
+            {item.bodyFatPct != null && (
+              <Text style={styles.historyBodyFat}>体脂肪率 {item.bodyFatPct}%</Text>
+            )}
+          </View>
         </View>
       ))}
-    </View>
+      <View style={{ height: 24 }} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:      { flex: 1, backgroundColor: '#F8F9FA', padding: 16 },
-  latestCard:     { backgroundColor: '#FFF', borderRadius: 12, padding: 20, alignItems: 'center', marginBottom: 16, elevation: 2 },
-  latestLabel:    { fontSize: 12, color: '#666' },
-  latestValue:    { fontSize: 36, fontWeight: 'bold', color: '#007AFF', marginTop: 4 },
-  inputRow:       { flexDirection: 'row', gap: 8, marginBottom: 24 },
-  input:          { flex: 1, backgroundColor: '#FFF', borderRadius: 10, paddingHorizontal: 16, fontSize: 18, height: 52, elevation: 1 },
-  submitBtn:      { backgroundColor: '#007AFF', borderRadius: 10, paddingHorizontal: 20, justifyContent: 'center' },
-  submitBtnText:  { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-  sectionTitle:   { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
-  historyItem:    { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFF', padding: 12, borderRadius: 8, marginBottom: 6 },
-  historyDate:    { fontSize: 14, color: '#666' },
-  historyWeight:  { fontSize: 14, fontWeight: 'bold' },
+  container:      { flex: 1, backgroundColor: colors.bg.primary, padding: 16 },
+  latestCard:     { backgroundColor: colors.bg.card, borderRadius: 12, padding: 20, alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: colors.border.subtle },
+  latestLabel:    { fontSize: 12, color: colors.text.secondary },
+  latestValue:    { fontSize: 36, fontWeight: 'bold', color: colors.neon.blue, marginTop: 4 },
+  latestBodyFat:  { fontSize: 13, color: colors.neon.orange, marginTop: 4 },
+  formCard:       { backgroundColor: colors.bg.card, borderRadius: 12, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: colors.border.subtle },
+  fieldRow:       { marginBottom: 12 },
+  fieldLabel:     { fontSize: 12, color: colors.text.secondary, marginBottom: 6 },
+  input:          { backgroundColor: colors.bg.cardAlt, borderRadius: 10, paddingHorizontal: 16, fontSize: 18, height: 52, color: colors.text.primary },
+  submitBtn:      { backgroundColor: colors.neon.blue, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  submitBtnText:  { color: colors.bg.primary, fontWeight: 'bold', fontSize: 16 },
+  sectionTitle:   { fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: colors.text.primary },
+  mockLabel:      { fontSize: 10, color: colors.text.muted, alignSelf: 'flex-end', marginBottom: 2 },
+  chartCard:      { backgroundColor: colors.bg.card, borderRadius: 12, padding: 12, marginBottom: 20, alignItems: 'center', borderWidth: 1, borderColor: colors.border.subtle },
+  chartLegend:    { flexDirection: 'row', gap: 16, marginBottom: 6, alignSelf: 'flex-start' },
+  legendItem:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot:      { width: 8, height: 8, borderRadius: 4 },
+  legendText:     { fontSize: 10, color: colors.text.secondary },
+  legendRange:    { fontSize: 10, color: colors.text.muted },
+  chartHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', width: CHART_WIDTH, marginBottom: 4 },
+  chartMax:       { fontSize: 11, color: colors.text.secondary },
+  chartMin:       { fontSize: 11, color: colors.text.secondary },
+  chartFooterRow: { flexDirection: 'row', justifyContent: 'space-between', width: CHART_WIDTH, marginTop: 4 },
+  chartDateText:  { fontSize: 11, color: colors.text.muted },
+  historyItem:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bg.card, padding: 12, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: colors.border.subtle },
+  historyDate:    { fontSize: 14, color: colors.text.secondary },
+  historyValues:  { alignItems: 'flex-end' },
+  historyWeight:  { fontSize: 14, fontWeight: 'bold', color: colors.text.primary },
+  historyBodyFat: { fontSize: 11, color: colors.neon.orange, marginTop: 2 },
 });
