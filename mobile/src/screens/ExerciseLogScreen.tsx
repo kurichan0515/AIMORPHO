@@ -135,6 +135,7 @@ export default function ExerciseLogScreen() {
       setName(''); setDuration(''); setKcal('');
       refetch();
       qc.invalidateQueries({ queryKey: ['streak'] });
+      qc.invalidateQueries({ queryKey: ['exerciseHistoryWeekly'] });
       Vibration.vibrate(40);
       streak.trigger(data);
 
@@ -166,7 +167,11 @@ export default function ExerciseLogScreen() {
         Alert.alert('運動記録を削除', `「${item.exerciseName}」を削除しますか？`, [
           { text: 'キャンセル', style: 'cancel' },
           { text: '削除', style: 'destructive', onPress: async () => {
-            try { await deleteExerciseLog(item.recordedAt); qc.resetQueries({ queryKey: ['exerciseHistory'] }); }
+            try {
+              await deleteExerciseLog(item.recordedAt);
+              qc.resetQueries({ queryKey: ['exerciseHistory'] });
+              qc.invalidateQueries({ queryKey: ['exerciseHistoryWeekly'] });
+            }
             catch { Alert.alert('エラー', '削除に失敗しました'); }
           }},
         ]);

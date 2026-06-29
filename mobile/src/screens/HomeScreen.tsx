@@ -182,6 +182,7 @@ export default function HomeScreen() {
       setRecordingExercise(null);
       setRecordedExercises(prev => [...prev, item.name]);
       qc.invalidateQueries({ queryKey: ['streak'] });
+      qc.invalidateQueries({ queryKey: ['exerciseHistoryWeekly'] });
       Vibration.vibrate(40);
       streak.trigger(data);
       const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];

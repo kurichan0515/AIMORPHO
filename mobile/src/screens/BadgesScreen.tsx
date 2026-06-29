@@ -67,6 +67,9 @@ export default function BadgesScreen() {
   }
 
   const earnedSet = new Set((earned || []).map((b: any) => b.badgeId as string));
+  const earnedDateMap = new Map<string, string>(
+    (earned || []).map((b: any) => [b.badgeId as string, b.earnedAt as string])
+  );
 
   // ロックバッジの進捗計算
   const getProgress = (reward: RewardDef): { current: number; total: number } | null => {
@@ -151,6 +154,11 @@ export default function BadgesScreen() {
                       </Text>
                       <Text style={[s.cardName, !isEarned && s.lockedText]}>{r.name}</Text>
                       <Text style={[s.cardDesc, !isEarned && s.lockedDesc]}>{r.desc}</Text>
+                      {isEarned && earnedDateMap.get(r.id) && (
+                        <Text style={s.earnedDate}>
+                          {new Date(earnedDateMap.get(r.id)!).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                        </Text>
+                      )}
                       {!isEarned && (() => {
                         const prog = getProgress(r);
                         return prog ? (
@@ -211,6 +219,7 @@ const s = StyleSheet.create({
   statusBadgeText: { fontSize: 9, fontWeight: '800', color: colors.bg.primary, letterSpacing: 0.5 },
   lockedBadge:     { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border.subtle },
   lockedBadgeText: { color: colors.text.muted },
+  earnedDate:      { fontSize: 9, color: colors.text.muted, marginTop: 3 },
   progressWrap:        { marginTop: 6, gap: 2 },
   badgeProgressTrack:  { height: 3, backgroundColor: colors.bg.cardAlt, borderRadius: 2, overflow: 'hidden' },
   badgeProgressFill:   { height: 3, borderRadius: 2 },
