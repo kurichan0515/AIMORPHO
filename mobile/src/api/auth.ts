@@ -25,6 +25,12 @@ export const login = async (email: string, password: string) => {
   return data as { accessToken: string; refreshToken: string; userId: string; isAnonymous: boolean };
 };
 
+export const recoverAccount = async (email: string, password: string) => {
+  const { data } = await api.post('/auth/recover', { email, password });
+  await saveTokens(data.accessToken, data.refreshToken);
+  return data as { accessToken: string; refreshToken: string; userId: string; isAnonymous: boolean };
+};
+
 export const logout = async () => {
   const refresh = await AsyncStorage.getItem('refreshToken');
   if (refresh) await api.post('/auth/logout', { refreshToken: refresh }).catch(() => {});

@@ -136,6 +136,32 @@ export class UserRepository implements IUserRepository, IGoalRepository, IStreak
     ));
   }
 
+  async restoreAccount(userId: UserId): Promise<void> {
+    // 全アイテムを取得して TTL/deleted フラグを削除（論理削除の巻き戻し）
+    const allKeys: { PK: string; SK: string }[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const r = await db.send(new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': `USER#${userId}` },
+        ProjectionExpression: 'PK, SK',
+        ExclusiveStartKey: lastKey,
+      }));
+      allKeys.push(...(r.Items ?? []) as any[]);
+      lastKey = r.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+
+    await Promise.all(allKeys.map(key =>
+      db.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: key.PK, SK: key.SK },
+        UpdateExpression: 'REMOVE deleted, deletedAt, #ttl',
+        ExpressionAttributeNames: { '#ttl': 'ttl' },
+      }))
+    ));
+  }
+
   async upgradeToRegistered(userId: UserId, email: string, passwordHash: string): Promise<void> {
     await db.send(new UpdateCommand({
       TableName: TABLE_NAME,

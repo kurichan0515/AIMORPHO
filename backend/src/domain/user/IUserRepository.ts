@@ -17,4 +17,5 @@ export interface IUserRepository {
   listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]>;
   listFcmTokensWithStreak(): Promise<{ userId: UserId; fcmToken: string; lastLoggedAt?: string; notificationsEnabled?: boolean }[]>;
   deleteAccount(userId: UserId): Promise<void>;
+  restoreAccount(userId: UserId): Promise<void>;
 }

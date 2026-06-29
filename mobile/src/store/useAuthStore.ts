@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   anonymousAuth, upgradeAccount as apiUpgrade,
   login as apiLogin, logout as apiLogout,
+  recoverAccount as apiRecover,
 } from '../api/auth';
 import { fetchAvatar } from '../api/avatar';
 import { useAvatarStore } from './useAvatarStore';
@@ -33,6 +34,7 @@ interface AuthState {
   completeOnboarding: () => Promise<void>;
   upgradeAccount: (email: string, password: string) => Promise<void>;
   loginAndRestore: (email: string, password: string) => Promise<void>;
+  recoverAndRestore: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetGuestData: () => Promise<void>;
 }
@@ -90,6 +92,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     ]);
     set({ userId: data.userId, isAnonymous: false, onboardingCompleted: true });
     const avatar = await fetchAvatar();
+    if (avatar) {
+      useAvatarStore.getState().setAvatarImages(avatar.avatarImages, avatar.regenerateCount);
+      useAvatarStore.getState().setBodyState(avatar.bodyState);
+      useAvatarStore.getState().setMissedDays(avatar.missedDays);
+    }
+  },
+
+  recoverAndRestore: async (email: string, password: string) => {
+    const data = await apiRecover(email, password);
+    await AsyncStorage.multiSet([
+      ['userId', data.userId],
+      [IS_ANONYMOUS_KEY, 'false'],
+      [ONBOARDING_KEY, 'true'],
+    ]);
+    set({ userId: data.userId, isAnonymous: false, onboardingCompleted: true });
+    const avatar = await fetchAvatar().catch(() => null);
     if (avatar) {
       useAvatarStore.getState().setAvatarImages(avatar.avatarImages, avatar.regenerateCount);
       useAvatarStore.getState().setBodyState(avatar.bodyState);

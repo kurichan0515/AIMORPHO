@@ -28,6 +28,11 @@ export const handler = async (event: LambdaEvent) => {
       if (!email || !password) return error('email and password required');
       return fromResult(await authSvc.login(email, password));
     }
+    if (path === '/auth/recover' && httpMethod === 'POST') {
+      const { email, password } = body as { email?: string; password?: string };
+      if (!email || !password) return error('email and password required');
+      return fromResult(await authSvc.recoverAccount(email, password));
+    }
     if (path === '/auth/refresh' && httpMethod === 'POST') {
       const { refreshToken } = body as { refreshToken?: string };
       if (!refreshToken) return error('refreshToken required');
