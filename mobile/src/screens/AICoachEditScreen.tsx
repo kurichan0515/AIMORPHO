@@ -45,7 +45,7 @@ export default function AICoachEditScreen() {
   };
 
   return (
-    <ScrollView style={s.root} contentContainerStyle={s.container}>
+    <ScrollView style={s.root} contentContainerStyle={s.container} keyboardDismissMode="on-drag">
       <Text style={s.subtitle}>AIコーチの口調スタイルを選択</Text>
       <View style={s.chipGrid}>
         {AI_TONE_OPTIONS.map(o => {
@@ -65,9 +65,11 @@ export default function AICoachEditScreen() {
       </View>
 
       <TouchableOpacity
-        style={s.primaryBtn}
+        style={[s.primaryBtn, mutation.isPending && s.primaryBtnDisabled]}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
+        accessibilityLabel="AIコーチ設定を保存"
+        accessibilityRole="button"
       >
         <Text style={s.primaryBtnText}>{mutation.isPending ? '保存中...' : '保存'}</Text>
       </TouchableOpacity>
@@ -98,6 +100,7 @@ const s = StyleSheet.create({
   chipLocked:    { opacity: 0.5 },
   lockIcon:      { fontSize: 14, marginTop: 6 },
 
-  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
-  primaryBtnText: { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
+  primaryBtn:         { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
+  primaryBtnDisabled: { opacity: 0.6 },
+  primaryBtnText:     { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
 });

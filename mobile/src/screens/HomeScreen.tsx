@@ -232,7 +232,11 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             {currentAvatarUrl ? (
-              <Image source={{ uri: currentAvatarUrl }} style={styles.profilePhoto} />
+              <Image
+              source={{ uri: currentAvatarUrl }}
+              style={styles.profilePhoto}
+              defaultSource={require('../assets/app-icon-source.png')}
+            />
             ) : (
               <View style={styles.profilePhotoPlaceholder} />
             )}
@@ -244,7 +248,12 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.bellWrapper}>
+            <View
+            accessibilityLabel={hasPendingPenalty ? '未確認の通知があります' : '通知'}
+            accessibilityRole="button"
+          >
             <BellIcon color={hasPendingPenalty ? colors.neon.orange : colors.text.secondary} size={24} />
+          </View>
             {hasPendingPenalty && <View style={styles.bellBadge} />}
           </View>
         </View>
@@ -287,7 +296,7 @@ export default function HomeScreen() {
 
         {/* アバタービジュアル */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity style={styles.shareBtn} onPress={shareAvatar}>
+          <TouchableOpacity style={styles.shareBtn} onPress={shareAvatar} accessibilityLabel="アバターをシェア" accessibilityRole="button">
             <Text style={styles.shareBtnText}>📤</Text>
           </TouchableOpacity>
           {currentAvatarUrl ? (
@@ -392,6 +401,8 @@ export default function HomeScreen() {
                 style={[styles.primaryBtn, styles.fullWidthBtn, mealSuggestionMutation.isPending && styles.primaryBtnDisabled]}
                 onPress={() => mealSuggestionMutation.mutate()}
                 disabled={mealSuggestionMutation.isPending}
+                accessibilityLabel="食事提案をもらう"
+                accessibilityRole="button"
               >
                 {mealSuggestionMutation.isPending
                   ? <ActivityIndicator color={colors.bg.primary} size="small" />
@@ -410,7 +421,7 @@ export default function HomeScreen() {
                 <BulbIcon color={colors.neon.yellow} size={18} />
                 <Text style={styles.infoRowText}>今日のアドバイス: {advice?.exercise_advice}</Text>
               </View>
-              <TouchableOpacity style={styles.gymCheckRow} onPress={toggleGym}>
+              <TouchableOpacity style={styles.gymCheckRow} onPress={toggleGym} accessibilityLabel={goToGym ? 'ジムに行く（ON）' : 'ジムに行く（OFF）'} accessibilityRole="checkbox">
                 <View style={[styles.checkboxBox, goToGym && styles.checkboxBoxChecked]}>
                   {goToGym && <Text style={styles.checkboxMark}>✓</Text>}
                 </View>
@@ -425,6 +436,8 @@ export default function HomeScreen() {
                 style={[styles.primaryBtn, styles.fullWidthBtn, (exerciseSuggestionMutation.isPending || profileLoading) && styles.primaryBtnDisabled]}
                 onPress={() => exerciseSuggestionMutation.mutate(goToGym)}
                 disabled={exerciseSuggestionMutation.isPending || profileLoading}
+                accessibilityLabel="トレーニング提案をもらう"
+                accessibilityRole="button"
               >
                 {exerciseSuggestionMutation.isPending
                   ? <ActivityIndicator color={colors.bg.primary} size="small" />

@@ -37,7 +37,7 @@ export default function GoalEditScreen() {
   });
 
   return (
-    <ScrollView style={s.root} contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={s.root} contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <View style={s.card}>
         <Text style={s.cardSub}>目標体重</Text>
         <View style={s.weightInput}>
@@ -68,9 +68,11 @@ export default function GoalEditScreen() {
       </View>
 
       <TouchableOpacity
-        style={[s.primaryBtn, { marginTop: 24 }]}
+        style={[s.primaryBtn, { marginTop: 24 }, mutation.isPending && s.primaryBtnDisabled]}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
+        accessibilityLabel="目標を保存"
+        accessibilityRole="button"
       >
         <Text style={s.primaryBtnText}>{mutation.isPending ? '設定中...' : '保存'}</Text>
       </TouchableOpacity>
@@ -94,6 +96,7 @@ const s = StyleSheet.create({
   modeSub:  { fontSize: 9, fontWeight: '700', letterSpacing: 1, marginBottom: 2 },
   modeLabel:{ fontSize: 12, fontWeight: '700', color: colors.text.secondary },
 
-  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
-  primaryBtnText: { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
+  primaryBtn:         { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
+  primaryBtnDisabled: { opacity: 0.6 },
+  primaryBtnText:     { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
 });

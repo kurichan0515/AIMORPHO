@@ -62,7 +62,7 @@ export default function BodyEditScreen() {
   });
 
   return (
-    <ScrollView style={s.root} contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={s.root} contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <View style={s.card}>
         <InputRow label="ニックネーム" value={form.displayName} onChange={v => f('displayName', v)} placeholder="例：たろう" />
         <View style={s.divider} />
@@ -74,9 +74,11 @@ export default function BodyEditScreen() {
       </View>
 
       <TouchableOpacity
-        style={[s.primaryBtn, { marginTop: 24 }]}
+        style={[s.primaryBtn, { marginTop: 24 }, mutation.isPending && s.primaryBtnDisabled]}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
+        accessibilityLabel="身体データを保存"
+        accessibilityRole="button"
       >
         <Text style={s.primaryBtnText}>{mutation.isPending ? '保存中...' : '保存'}</Text>
       </TouchableOpacity>
@@ -97,6 +99,7 @@ const s = StyleSheet.create({
   container:      { padding: 16 },
   card:           { backgroundColor: colors.bg.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border.subtle, overflow: 'hidden' },
   divider:        { height: 1, backgroundColor: colors.border.subtle, marginHorizontal: 16 },
-  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
-  primaryBtnText: { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
+  primaryBtn:         { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
+  primaryBtnDisabled: { opacity: 0.6 },
+  primaryBtnText:     { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
 });

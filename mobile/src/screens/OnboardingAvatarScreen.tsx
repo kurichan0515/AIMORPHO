@@ -11,6 +11,8 @@ import { useAvatarStore } from '../store/useAvatarStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { Gender, getDefaultAvatars, DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
 import AvatarConsentModal from '../components/AvatarConsentModal';
+import Toast from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import { colors } from '../theme/colors';
 
 type GenderOption = { value: Gender; label: string; sub: string };
@@ -28,18 +30,20 @@ export default function OnboardingAvatarScreen() {
   const [localGender, setLocalGender] = useState<Gender | null>(resolvedGender);
   const [generated, setGenerated] = useState(false);
   const [consentVisible, setConsentVisible] = useState(false);
+  const { toastVisible, toastMessage, showToast, hideToast } = useToast();
 
   const mutation = useMutation({
     mutationFn: (uri: string) => generateAvatar(uri),
     onSuccess: (data) => {
       setAvatarImages(data.avatarImages, 1);
       setGenerated(true);
+      showToast('アバターを生成しました！');
     },
     onError: (e: any) => {
       if (e.response?.status === 403) {
         Alert.alert('上限に達しました', '追加生成はプレミアムプランへのアップグレードが必要です');
       } else {
-        Alert.alert('エラー', 'アバター生成に失敗しました');
+        showToast('アバター生成に失敗しました');
       }
     },
   });
@@ -71,6 +75,7 @@ export default function OnboardingAvatarScreen() {
   const needGender = !localGender;
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.stepIndicator}>
@@ -191,6 +196,8 @@ export default function OnboardingAvatarScreen() {
         onCancel={() => setConsentVisible(false)}
       />
     </ScrollView>
+    <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
+    </View>
   );
 }
 
