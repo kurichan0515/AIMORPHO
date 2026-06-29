@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { setNetworkOffline } from '../utils/networkStatus';
 
 export const BASE_URL = __DEV__
   ? (Platform.OS === 'android' ? 'http://192.168.1.4:3001' : 'http://localhost:3001')
@@ -15,9 +16,18 @@ api.interceptors.request.use(async (config) => {
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    setNetworkOffline(false);
+    return res;
+  },
   async (err) => {
-    if (err.response?.status !== 401) return Promise.reject(err);
+    // レスポンスなし = ネットワークエラー
+    if (!err.response) {
+      setNetworkOffline(true);
+      return Promise.reject(err);
+    }
+
+    if (err.response.status !== 401) return Promise.reject(err);
 
     const refresh = await AsyncStorage.getItem('refreshToken');
     if (!refresh) return Promise.reject(err);

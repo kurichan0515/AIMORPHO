@@ -71,6 +71,35 @@ export class UserRepository implements IUserRepository, IGoalRepository, IStreak
     }));
   }
 
+  async listFcmTokensWithStreak(): Promise<{ userId: UserId; fcmToken: string; lastLoggedAt?: string }[]> {
+    const [profileScan, streakScan] = await Promise.all([
+      db.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'SK = :sk AND attribute_exists(fcmToken)',
+        ExpressionAttributeValues: { ':sk': 'PROFILE' },
+        ProjectionExpression: 'PK, fcmToken',
+      })),
+      db.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'SK = :sk',
+        ExpressionAttributeValues: { ':sk': 'STREAK' },
+        ProjectionExpression: 'PK, lastLoggedAt',
+      })),
+    ]);
+
+    const streakMap = new Map<string, string | undefined>(
+      (streakScan.Items ?? []).map(item => [
+        (item.PK as string).replace('USER#', ''),
+        item.lastLoggedAt as string | undefined,
+      ])
+    );
+
+    return (profileScan.Items ?? []).map(item => {
+      const userId = (item.PK as string).replace('USER#', '') as UserId;
+      return { userId, fcmToken: item.fcmToken as string, lastLoggedAt: streakMap.get(userId) };
+    });
+  }
+
   async deleteAccount(userId: UserId): Promise<void> {
     const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
     await db.send(new UpdateCommand({
