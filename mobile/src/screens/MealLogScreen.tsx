@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, TextInput, StyleSheet, Alert, Scro
 import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Vibration } from 'react-native';
 import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHistory } from '../api/logs';
 import { getAiUsage } from '../api/ai';
 import api from '../api/client';
@@ -128,6 +129,7 @@ export default function MealLogScreen() {
   const { toastVisible, toastMessage, showToast, hideToast } = useToast();
   const streak = useStreakCelebration();
   const qc = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const showPremiumModal = (title: string, desc: string) => setPremiumModal({ visible: true, title, desc });
 
@@ -188,6 +190,7 @@ export default function MealLogScreen() {
       setEditingKcal(false);
       refetch();
       qc.invalidateQueries({ queryKey: ['streak'] });
+      Vibration.vibrate(40);
       streak.trigger(data);
       showToast('食事を記録しました');
     },
@@ -213,6 +216,7 @@ export default function MealLogScreen() {
       setManual({ menu_name: '', kcal: '', protein_g: '', fat_g: '', carb_g: '' });
       refetch();
       qc.invalidateQueries({ queryKey: ['streak'] });
+      Vibration.vibrate(40);
       streak.trigger(data);
       showToast('食事を記録しました');
     },
@@ -394,8 +398,18 @@ export default function MealLogScreen() {
         <DailyKcalChart items={displayHistory} isMock={isMock} />
 
         <Text style={styles.sectionTitle}>最近の食事記録</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="料理名で検索..."
+          placeholderTextColor={colors.text.muted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+        />
         <Text style={styles.historyHint}>タップで手動入力欄にコピー</Text>
-        {displayHistory.map((item: any) => (
+        {displayHistory.filter((item: any) =>
+          !searchQuery || (item.menuName ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+        ).map((item: any) => (
           <TouchableOpacity key={item.SK} style={styles.historyItem} onPress={() => fillFromHistory(item)}>
             <View style={styles.historyLeft}>
               <Text style={styles.historyName}>{item.menuName || '未解析'}</Text>
@@ -491,6 +505,7 @@ const styles = StyleSheet.create({
   chartCard:            { backgroundColor: colors.bg.card, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: colors.border.subtle },
   mockBanner:           { backgroundColor: 'rgba(106,122,150,0.15)', borderRadius: 8, padding: 10, marginBottom: 8 },
   mockBannerText:       { fontSize: 12, color: colors.text.muted, textAlign: 'center' },
+  searchInput:          { backgroundColor: colors.bg.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: colors.text.primary, borderWidth: 1, borderColor: colors.border.subtle, marginBottom: 8 },
   historyHint:          { fontSize: 11, color: colors.text.muted, marginBottom: 8, marginTop: -4 },
   historyItem:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bg.card, padding: 12, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: colors.border.subtle },
   historyLeft:          { flex: 1, gap: 2 },

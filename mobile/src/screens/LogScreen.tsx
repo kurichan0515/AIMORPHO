@@ -3,9 +3,12 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions,
   NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import WeightLogScreen from './WeightLogScreen';
 import MealLogScreen from './MealLogScreen';
 import ExerciseLogScreen from './ExerciseLogScreen';
+import { getMealHistory, getExerciseHistory } from '../api/logs';
+import api from '../api/client';
 import { colors } from '../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -17,6 +20,63 @@ const TABS = [
 ] as const;
 
 const MEAL_TAB_INDEX = TABS.findIndex(t => t.key === 'meal');
+
+// 今週の月曜日（ISO）を返す
+const thisWeekStart = (): string => {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+};
+
+function WeeklySummary() {
+  const weekStart = thisWeekStart();
+
+  const { data: meals } = useQuery({
+    queryKey: ['mealHistory'],
+    queryFn: () => getMealHistory({ limit: 50 }),
+    staleTime: 1000 * 60 * 2,
+  });
+  const { data: exercises } = useQuery({
+    queryKey: ['exerciseHistory'],
+    queryFn: () => getExerciseHistory({ limit: 50 }),
+    staleTime: 1000 * 60 * 2,
+  });
+  const { data: streak } = useQuery({
+    queryKey: ['streak'],
+    queryFn: () => api.get('/users/me/streak').then(r => r.data),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const mealCount = (meals ?? []).filter((m: any) => m.recordedAt?.slice(0, 10) >= weekStart).length;
+  const exerciseCount = (exercises ?? []).filter((e: any) => e.recordedAt?.slice(0, 10) >= weekStart).length;
+  const streakDays = streak?.currentDays ?? 0;
+
+  return (
+    <View style={s.summary}>
+      <Text style={s.summaryTitle}>今週の記録</Text>
+      <View style={s.summaryRow}>
+        <SummaryItem icon="🍽" label="食事" value={mealCount} unit="回" />
+        <View style={s.divider} />
+        <SummaryItem icon="💪" label="運動" value={exerciseCount} unit="回" />
+        <View style={s.divider} />
+        <SummaryItem icon="🔥" label="継続" value={streakDays} unit="日" highlight={streakDays >= 3} />
+      </View>
+    </View>
+  );
+}
+
+function SummaryItem({ icon, label, value, unit, highlight }: { icon: string; label: string; value: number; unit: string; highlight?: boolean }) {
+  return (
+    <View style={s.summaryItem}>
+      <Text style={s.summaryIcon}>{icon}</Text>
+      <Text style={[s.summaryValue, highlight && { color: colors.neon.orange }]}>{value}</Text>
+      <Text style={s.summaryUnit}>{unit}</Text>
+      <Text style={s.summaryLabel}>{label}</Text>
+    </View>
+  );
+}
 
 export default function LogScreen() {
   const [tab, setTab] = useState(MEAL_TAB_INDEX);
@@ -37,6 +97,7 @@ export default function LogScreen() {
 
   return (
     <View style={styles.container}>
+      <WeeklySummary />
       <View style={styles.tabRow}>
         {TABS.map((t, i) => (
           <TouchableOpacity
@@ -68,6 +129,18 @@ export default function LogScreen() {
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  summary:      { backgroundColor: colors.bg.card, borderBottomWidth: 1, borderBottomColor: colors.border.subtle, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
+  summaryTitle: { fontSize: 11, fontWeight: '700', color: colors.text.muted, letterSpacing: 1, marginBottom: 10 },
+  summaryRow:   { flexDirection: 'row', alignItems: 'center' },
+  summaryItem:  { flex: 1, alignItems: 'center', gap: 2 },
+  summaryIcon:  { fontSize: 18 },
+  summaryValue: { fontSize: 20, fontWeight: '800', color: colors.neon.blue },
+  summaryUnit:  { fontSize: 11, color: colors.text.muted },
+  summaryLabel: { fontSize: 10, color: colors.text.muted },
+  divider:      { width: 1, height: 40, backgroundColor: colors.border.subtle },
+});
 
 const styles = StyleSheet.create({
   container:     { flex: 1, backgroundColor: colors.bg.primary },

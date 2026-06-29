@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, FlatList, ScrollView,
+  Alert, FlatList, ScrollView, Vibration,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Polyline, Circle } from 'react-native-svg';
@@ -90,6 +90,7 @@ export default function ExerciseLogScreen() {
   const { toastVisible, toastMessage, showToast, hideToast } = useToast();
   const streak = useStreakCelebration();
   const qc = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     AsyncStorage.getItem(CUSTOM_EXERCISES_KEY).then(raw => {
@@ -121,6 +122,7 @@ export default function ExerciseLogScreen() {
       setName(''); setDuration(''); setKcal('');
       refetch();
       qc.invalidateQueries({ queryKey: ['streak'] });
+      Vibration.vibrate(40);
       streak.trigger(data);
 
       const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
@@ -166,7 +168,9 @@ export default function ExerciseLogScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
       <FlatList
-        data={history || []}
+        data={(history || []).filter((item: any) =>
+          !searchQuery || (item.exerciseName ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+        )}
         keyExtractor={(item: any) => item.SK}
         keyboardShouldPersistTaps="handled"
         renderItem={renderHistoryItem}
@@ -236,6 +240,14 @@ export default function ExerciseLogScreen() {
             <KcalChart data={kcalChartData} isMock={isMock} />
 
             <Text style={styles.sectionTitle}>履歴</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="種目名で検索..."
+              placeholderTextColor={colors.text.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
             {isMock && (
               <Text style={styles.emptyHint}>運動を記録すると履歴が表示されます</Text>
             )}
@@ -281,6 +293,7 @@ const styles = StyleSheet.create({
   submitBtnDisabled:       { opacity: 0.6 },
   submitBtnText:           { color: colors.bg.primary, fontSize: 16, fontWeight: 'bold' },
   sectionTitle:            { fontSize: 16, fontWeight: 'bold', marginTop: 24, marginBottom: 8, color: colors.text.primary },
+  searchInput:             { backgroundColor: colors.bg.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: colors.text.primary, borderWidth: 1, borderColor: colors.border.subtle, marginBottom: 8 },
   emptyHint:               { fontSize: 13, color: colors.text.muted, textAlign: 'center', paddingVertical: 12 },
   chartCard:               { backgroundColor: colors.bg.card, borderRadius: 12, padding: 12, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: colors.border.subtle },
   mockBanner:              { backgroundColor: 'rgba(106,122,150,0.15)', borderRadius: 8, padding: 10, marginBottom: 8, alignSelf: 'stretch' },

@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Modal, StatusBar, Animated } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Modal, StatusBar, Animated, Share, Vibration, RefreshControl } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getDailyAdvice, sendPenaltyAnswer,
   getMealSuggestion, getExerciseSuggestion, getAiUsage,
   MealSuggestionResult, ExerciseSuggestionResult, ExerciseSuggestionItem,
 } from '../api/ai';
-import { recordExercise } from '../api/logs';
+import { recordExercise, getMealHistory } from '../api/logs';
 import api from '../api/client';
 import { useAvatarStore } from '../store/useAvatarStore';
 import { DEFAULT_AVATAR_LABELS, getDefaultAvatars } from '../utils/defaultAvatars';
@@ -16,6 +16,19 @@ import { BellIcon, WorkoutsIcon, CheckCircleIcon, BulbIcon, MealIcon, SparkleIco
 import { useIAP } from '../hooks/useIAP';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
+
+// 今日の日付文字列 (YYYY-MM-DD)
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+// TDEE 簡易計算
+const calcTDEE = (profile: any): number => {
+  if (!profile?.weightKg || !profile?.heightCm || !profile?.age || !profile?.gender) return 2000;
+  const bmr = profile.gender === 'male'
+    ? 88.362 + 13.397 * profile.weightKg + 5.677 * profile.heightCm - 4.799 * profile.age
+    : 447.593 + 9.247 * profile.weightKg + 3.098 * profile.heightCm - 4.330 * profile.age;
+  const m: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
+  return Math.round(bmr * (m[profile.lifestyle] ?? 1.375));
+};
 
 const isLimitError = (err: any) => err?.response?.status === 429;
 const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
@@ -28,6 +41,7 @@ export default function HomeScreen() {
   const [hasPendingPenalty, setHasPendingPenalty] = useState(false);
   const [showInterrogation, setShowInterrogation] = useState(false);
   const [interrogationMsg, setInterrogationMsg] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [mealSuggestion, setMealSuggestion] = useState<MealSuggestionResult | null>(null);
   const [exerciseSuggestion, setExerciseSuggestion] = useState<ExerciseSuggestionResult | null>(null);
   const [showMealModal, setShowMealModal] = useState(false);
@@ -56,6 +70,12 @@ export default function HomeScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: todayMeals } = useQuery({
+    queryKey: ['mealHistory'],
+    queryFn: () => getMealHistory({ limit: 30 }),
+    staleTime: 1000 * 60 * 2,
+  });
+
   const { data: aiUsage, refetch: refetchUsage } = useQuery({
     queryKey: ['aiUsage'],
     queryFn: getAiUsage,
@@ -69,6 +89,25 @@ export default function HomeScreen() {
   useEffect(() => {
     checkPenalty();
   }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['profile'] }),
+      qc.invalidateQueries({ queryKey: ['streak'] }),
+      qc.invalidateQueries({ queryKey: ['dailyAdvice'] }),
+      qc.invalidateQueries({ queryKey: ['aiUsage'] }),
+      qc.invalidateQueries({ queryKey: ['mealHistory'] }),
+    ]);
+    setRefreshing(false);
+  }, [qc]);
+
+  const shareAvatar = useCallback(() => {
+    const url = avatarImages[bodyState];
+    const streakDays = streakData?.currentDays ?? 0;
+    const msg = `AIMORPHOで${streakDays}日間継続中！AIコーチと一緒に体型を変えていこう 💪 #AIMORPHO`;
+    Share.share(url ? { url, message: msg } : { message: msg });
+  }, [avatarImages, bodyState, streakData]);
 
   // カムバック検出（3日以上未記録 = 激励バナー）
   const daysSinceLast = streakData?.lastLoggedAt
@@ -141,6 +180,7 @@ export default function HomeScreen() {
       setRecordingExercise(null);
       setRecordedExercises(prev => [...prev, item.name]);
       qc.invalidateQueries({ queryKey: ['streak'] });
+      Vibration.vibrate(40);
       streak.trigger(data);
       const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
       if (nonStreakBadges.length) {
@@ -171,9 +211,21 @@ export default function HomeScreen() {
 
   const streakDays = streakData?.currentDays ?? 0;
 
+  const today = todayStr();
+  const todayKcal = (todayMeals ?? [])
+    .filter((m: any) => m.recordedAt?.slice(0, 10) === today)
+    .reduce((sum: number, m: any) => sum + (m.kcal ?? 0), 0);
+  const tdee = calcTDEE(profile);
+  const kcalPct = Math.min(todayKcal / tdee, 1);
+  const showCalorieBar = profile?.weightKg && profile?.heightCm;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.neon.blue} />}
+      >
         <StatusBar barStyle="light-content" />
 
         {/* ヘッダー */}
@@ -216,8 +268,28 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* カロリー進捗バー */}
+        {showCalorieBar && (
+          <View style={styles.kcalCard}>
+            <View style={styles.kcalRow}>
+              <Text style={styles.kcalLabel}>今日の摂取カロリー</Text>
+              <Text style={styles.kcalValue}>
+                <Text style={{ color: kcalPct >= 1 ? colors.neon.orange : colors.neon.blue }}>{todayKcal}</Text>
+                <Text style={styles.kcalTarget}> / {tdee} kcal</Text>
+              </Text>
+            </View>
+            <View style={styles.kcalTrack}>
+              <View style={[styles.kcalFill, { width: `${kcalPct * 100}%` as any, backgroundColor: kcalPct >= 1 ? colors.neon.orange : colors.neon.blue }]} />
+            </View>
+            <Text style={styles.kcalHint}>{kcalPct >= 1 ? '目標カロリー達成！' : `残り ${tdee - todayKcal} kcal`}</Text>
+          </View>
+        )}
+
         {/* アバタービジュアル */}
         <View style={styles.avatarSection}>
+          <TouchableOpacity style={styles.shareBtn} onPress={shareAvatar}>
+            <Text style={styles.shareBtnText}>📤</Text>
+          </TouchableOpacity>
           {currentAvatarUrl ? (
             <>
               <AvatarSilhouette width={170} height={230} style={styles.avatarSilhouette} />
@@ -482,6 +554,18 @@ const styles = StyleSheet.create({
   streakLabel:            { fontSize: 13, color: colors.text.secondary, fontWeight: '600' },
   streakBest:             { fontSize: 11, color: colors.text.muted, marginLeft: 8 },
   streakBannerText:       { flex: 1, fontSize: 13, color: colors.text.secondary },
+
+  kcalCard:               { marginHorizontal: 20, marginBottom: 8, backgroundColor: colors.bg.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border.subtle },
+  kcalRow:                { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  kcalLabel:              { fontSize: 12, color: colors.text.secondary },
+  kcalValue:              { fontSize: 14, fontWeight: '700' },
+  kcalTarget:             { color: colors.text.muted, fontWeight: '400' },
+  kcalTrack:              { height: 6, backgroundColor: colors.bg.cardAlt, borderRadius: 3, overflow: 'hidden', marginBottom: 4 },
+  kcalFill:               { height: 6, borderRadius: 3 },
+  kcalHint:               { fontSize: 11, color: colors.text.muted },
+
+  shareBtn:               { position: 'absolute', top: 12, right: 12, zIndex: 10, backgroundColor: 'rgba(15,20,35,0.7)', borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  shareBtnText:           { fontSize: 16 },
 
   avatarSection:          { height: 260, backgroundColor: colors.bg.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarSilhouette:       { marginTop: 20 },
