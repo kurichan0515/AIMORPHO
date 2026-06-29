@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { recordWeight, getWeightHistory } from '../api/logs';
@@ -179,64 +179,78 @@ export default function WeightLogScreen() {
   const latest = history?.[0];
   const chartData = [...(history || [])].reverse();
 
+  const renderHistoryItem = useCallback(({ item }: { item: any }) => (
+    <View style={styles.historyItem}>
+      <Text style={styles.historyDate}>{item.recordedAt?.slice(0, 10)}</Text>
+      <View style={styles.historyValues}>
+        <Text style={styles.historyWeight}>{item.weightKg} kg</Text>
+        {item.bodyFatPct != null && (
+          <Text style={styles.historyBodyFat}>体脂肪率 {item.bodyFatPct}%</Text>
+        )}
+      </View>
+    </View>
+  ), []);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
-    <ScrollView style={styles.container}>
-      {latest && (
-        <View style={styles.latestCard}>
-          <Text style={styles.latestLabel}>直近の体重</Text>
-          <Text style={styles.latestValue}>{latest.weightKg} kg</Text>
-          {latest.bodyFatPct != null && (
-            <Text style={styles.latestBodyFat}>体脂肪率 {latest.bodyFatPct}%</Text>
+    <FlatList
+      data={history || []}
+      keyExtractor={(item: any) => item.SK}
+      keyboardShouldPersistTaps="handled"
+      renderItem={renderHistoryItem}
+      contentContainerStyle={styles.container}
+      ListHeaderComponent={
+        <View>
+          {latest && (
+            <View style={styles.latestCard}>
+              <Text style={styles.latestLabel}>直近の体重</Text>
+              <Text style={styles.latestValue}>{latest.weightKg} kg</Text>
+              {latest.bodyFatPct != null && (
+                <Text style={styles.latestBodyFat}>体脂肪率 {latest.bodyFatPct}%</Text>
+              )}
+            </View>
           )}
-        </View>
-      )}
 
-      <View style={styles.formCard}>
-        <View style={styles.fieldRow}>
-          <Text style={styles.fieldLabel}>体重 (kg) *</Text>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            keyboardType="decimal-pad"
-            placeholder="65.0"
-            placeholderTextColor={colors.text.muted}
-          />
-        </View>
-        <View style={styles.fieldRow}>
-          <Text style={styles.fieldLabel}>体脂肪率 (%)</Text>
-          <TextInput
-            style={styles.input}
-            value={bodyFatInput}
-            onChangeText={setBodyFatInput}
-            keyboardType="decimal-pad"
-            placeholder="任意"
-            placeholderTextColor={colors.text.muted}
-          />
-        </View>
-        <TouchableOpacity style={styles.submitBtn} onPress={submit} disabled={mutation.isPending}>
-          <Text style={styles.submitBtnText}>記録</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.sectionTitle}>推移</Text>
-      <WeightChart data={chartData} />
-
-      <Text style={styles.sectionTitle}>履歴</Text>
-      {(history || []).map((item: any) => (
-        <View key={item.SK} style={styles.historyItem}>
-          <Text style={styles.historyDate}>{item.recordedAt?.slice(0, 10)}</Text>
-          <View style={styles.historyValues}>
-            <Text style={styles.historyWeight}>{item.weightKg} kg</Text>
-            {item.bodyFatPct != null && (
-              <Text style={styles.historyBodyFat}>体脂肪率 {item.bodyFatPct}%</Text>
-            )}
+          <View style={styles.formCard}>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>体重 (kg) *</Text>
+              <TextInput
+                style={styles.input}
+                value={input}
+                onChangeText={setInput}
+                keyboardType="decimal-pad"
+                placeholder="65.0"
+                placeholderTextColor={colors.text.muted}
+              />
+            </View>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>体脂肪率 (%)</Text>
+              <TextInput
+                style={styles.input}
+                value={bodyFatInput}
+                onChangeText={setBodyFatInput}
+                keyboardType="decimal-pad"
+                placeholder="任意"
+                placeholderTextColor={colors.text.muted}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.submitBtn, mutation.isPending && { opacity: 0.6 }]}
+              onPress={submit}
+              disabled={mutation.isPending}
+            >
+              <Text style={styles.submitBtnText}>記録</Text>
+            </TouchableOpacity>
           </View>
+
+          <Text style={styles.sectionTitle}>推移</Text>
+          <WeightChart data={chartData} />
+
+          <Text style={styles.sectionTitle}>履歴</Text>
         </View>
-      ))}
-      <View style={{ height: 24 }} />
-    </ScrollView>
+      }
+      ListFooterComponent={<View style={{ height: 24 }} />}
+    />
 
     <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
     {streak.celebration && (

@@ -15,5 +15,6 @@ export interface IUserRepository {
     meta: { expiresAt: string; store: 'apple' | 'google'; productId: string; transactionId: string }
   ): Promise<void>;
   listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]>;
+  listFcmTokensWithStreak(): Promise<{ userId: UserId; fcmToken: string; lastLoggedAt?: string }[]>;
   deleteAccount(userId: UserId): Promise<void>;
 }

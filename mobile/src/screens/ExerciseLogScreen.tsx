@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, Switch,
+  Alert, FlatList, ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Polyline, Circle } from 'react-native-svg';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { recordExercise, getExerciseHistory } from '../api/logs';
 import { colors } from '../theme/colors';
+import { useStreakCelebration } from '../hooks/useStreakCelebration';
+import { useToast } from '../hooks/useToast';
+import Toast from '../components/Toast';
+import StreakCelebrationModal from '../components/StreakCelebrationModal';
 
 const PRESETS = [
   'ウォーキング', 'ジョギング', '筋トレ', 'サイクリング', 'ヨガ', '水泳', 'HIIT',
@@ -31,29 +35,30 @@ const MOCK_EXERCISE_DATA = [
   { recordedAt: '2026-06-13', kcalBurned: 350 },
 ];
 
-function KcalChart({ data }: { data: { recordedAt: string; kcalBurned: number }[] }) {
+function KcalChart({ data, isMock }: { data: { recordedAt: string; kcalBurned: number }[]; isMock: boolean }) {
   const chartData = data.length >= 2 ? data : MOCK_EXERCISE_DATA;
-  const usedMock = data.length < 2;
+  const usedMock = isMock || data.length < 2;
 
   const kcals = chartData.map(d => d.kcalBurned);
   const min = Math.min(...kcals);
   const max = Math.max(...kcals);
   const range = max - min || 1;
 
-  const points = chartData.map((d, i) => {
-    const x = CHART_PADDING + (i / (chartData.length - 1)) * (CHART_WIDTH - CHART_PADDING * 2);
-    const y = CHART_HEIGHT - CHART_PADDING - ((d.kcalBurned - min) / range) * (CHART_HEIGHT - CHART_PADDING * 2);
-    return { x, y };
-  });
+  const points = chartData.map((d, i) => ({
+    x: CHART_PADDING + (i / (chartData.length - 1)) * (CHART_WIDTH - CHART_PADDING * 2),
+    y: CHART_HEIGHT - CHART_PADDING - ((d.kcalBurned - min) / range) * (CHART_HEIGHT - CHART_PADDING * 2),
+  }));
 
   return (
     <View style={styles.chartCard}>
       {usedMock && (
-        <Text style={styles.mockLabel}>サンプルデータ</Text>
+        <View style={styles.mockBanner}>
+          <Text style={styles.mockBannerText}>運動を記録するとここにグラフが表示されます</Text>
+        </View>
       )}
       <View style={styles.chartHeaderRow}>
-        <Text style={styles.chartMax}>{max} kcal</Text>
-        <Text style={styles.chartMin}>{min} kcal</Text>
+        <Text style={styles.chartStat}>{max} kcal</Text>
+        <Text style={styles.chartStat}>{min} kcal</Text>
       </View>
       <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
         <Polyline
@@ -82,6 +87,10 @@ export default function ExerciseLogScreen() {
   const [completed, setCompleted] = useState(true);
   const [customExercises, setCustomExercises] = useState<string[]>([]);
 
+  const { toastVisible, toastMessage, showToast, hideToast } = useToast();
+  const streak = useStreakCelebration();
+  const qc = useQueryClient();
+
   useEffect(() => {
     AsyncStorage.getItem(CUSTOM_EXERCISES_KEY).then(raw => {
       if (raw) setCustomExercises(JSON.parse(raw));
@@ -92,6 +101,9 @@ export default function ExerciseLogScreen() {
     queryKey: ['exerciseHistory'],
     queryFn: () => getExerciseHistory({ limit: 20 }),
   });
+
+  const isMock = !history?.length;
+  const kcalChartData = [...(history || [])].filter((item: any) => item.kcalBurned).reverse();
 
   const mutation = useMutation({
     mutationFn: () => recordExercise({
@@ -108,114 +120,185 @@ export default function ExerciseLogScreen() {
       }
       setName(''); setDuration(''); setKcal('');
       refetch();
-      if (data.newBadges?.length) {
-        Alert.alert('バッジ獲得！', data.newBadges.map((b: any) => b.name).join('、'));
+      qc.invalidateQueries({ queryKey: ['streak'] });
+      streak.trigger(data);
+
+      const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
+      if (nonStreakBadges.length) {
+        Alert.alert('バッジ獲得！', nonStreakBadges.map((b: any) => b.name).join('、'));
       }
       if (data.recovered) {
-        Alert.alert('体型回復！', 'アバターの体型が改善しました 🎉');
+        Alert.alert('体型回復！', 'アバターの体型が改善しました');
+      }
+      if (!nonStreakBadges.length && !data.recovered && !data.streakInfo?.streakMilestone) {
+        showToast('運動を記録しました');
       }
     },
     onError: () => Alert.alert('エラー', '記録に失敗しました'),
   });
 
-  const submit = () => {
+  const submit = useCallback(() => {
     if (!name) { Alert.alert('エラー', '種目を入力してください'); return; }
     mutation.mutate();
-  };
-
-  const kcalChartData = [...(history || [])]
-    .filter((item: any) => item.kcalBurned)
-    .reverse();
+  }, [name, mutation]);
 
   const allExercises = [...PRESETS, ...customExercises];
 
+  const renderHistoryItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <View style={styles.historyItem}>
+      <View style={styles.historyDate}>
+        <Text style={styles.historyDateText}>{item.recordedAt?.slice(5, 10)}</Text>
+      </View>
+      <View style={styles.historyMain}>
+        <Text style={styles.historyName}>{item.exerciseName}</Text>
+        <Text style={styles.historyMeta}>
+          {[item.durationMin && `${item.durationMin}分`, item.kcalBurned && `${item.kcalBurned}kcal`].filter(Boolean).join(' / ')}
+        </Text>
+      </View>
+      <View style={[styles.completedBadge, item.completed ? styles.completedBadgeDone : styles.completedBadgeSkip]}>
+        <Text style={[styles.completedBadgeText, item.completed ? styles.completedBadgeTextDone : styles.completedBadgeTextSkip]}>
+          {item.completed ? '完了' : '未完'}
+        </Text>
+      </View>
+    </View>
+  ), []);
+
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>種目を選ぶ</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetRow}>
-        {allExercises.map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[styles.presetChip, name === p && styles.presetChipActive]}
-            onPress={() => setName(p)}
-          >
-            <Text style={[styles.presetChipText, name === p && styles.presetChipTextActive]}>{p}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <TextInput style={styles.input} placeholder="または直接入力" placeholderTextColor={colors.text.muted} value={name} onChangeText={setName} />
-
-      <View style={styles.row}>
-        <View style={styles.halfInput}>
-          <Text style={styles.label}>時間 (分)</Text>
-          <TextInput style={styles.input} keyboardType="number-pad" value={duration} onChangeText={setDuration} placeholder="30" placeholderTextColor={colors.text.muted} />
-        </View>
-        <View style={styles.halfInput}>
-          <Text style={styles.label}>消費kcal</Text>
-          <TextInput style={styles.input} keyboardType="number-pad" value={kcal} onChangeText={setKcal} placeholder="200" placeholderTextColor={colors.text.muted} />
-        </View>
-      </View>
-
-      <View style={styles.switchRow}>
-        <Text style={styles.label}>完了した</Text>
-        <Switch value={completed} onValueChange={setCompleted} trackColor={{ false: colors.bg.cardAlt, true: colors.neon.green }} thumbColor={colors.text.primary} />
-      </View>
-
-      <TouchableOpacity style={styles.submitBtn} onPress={submit} disabled={mutation.isPending}>
-        <Text style={styles.submitBtnText}>{mutation.isPending ? '記録中...' : '記録する'}</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.sectionTitle}>消費カロリーの推移</Text>
-      <KcalChart data={kcalChartData} />
-
-      <Text style={styles.sectionTitle}>履歴</Text>
-      {(history || []).map((item: any) => (
-        <View key={item.SK} style={styles.historyItem}>
+    <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
+      <FlatList
+        data={history || []}
+        keyExtractor={(item: any) => item.SK}
+        keyboardShouldPersistTaps="handled"
+        renderItem={renderHistoryItem}
+        ListHeaderComponent={
           <View>
-            <Text style={styles.historyName}>{item.exerciseName}</Text>
-            <Text style={styles.historyMeta}>
-              {item.durationMin ? `${item.durationMin}分` : ''}{item.kcalBurned ? ` / ${item.kcalBurned}kcal` : ''}
-            </Text>
+            {/* プリセット選択 */}
+            <Text style={styles.label}>種目を選ぶ</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetRow}>
+              {allExercises.map(p => (
+                <TouchableOpacity
+                  key={p}
+                  style={[styles.presetChip, name === p && styles.presetChipActive]}
+                  onPress={() => setName(p)}
+                >
+                  <Text style={[styles.presetChipText, name === p && styles.presetChipTextActive]}>{p}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TextInput
+              style={styles.input}
+              placeholder="または直接入力"
+              placeholderTextColor={colors.text.muted}
+              value={name}
+              onChangeText={setName}
+            />
+
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>時間 (分)</Text>
+                <TextInput style={styles.input} keyboardType="number-pad" value={duration} onChangeText={setDuration} placeholder="30" placeholderTextColor={colors.text.muted} />
+              </View>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>消費kcal</Text>
+                <TextInput style={styles.input} keyboardType="number-pad" value={kcal} onChangeText={setKcal} placeholder="200" placeholderTextColor={colors.text.muted} />
+              </View>
+            </View>
+
+            {/* 完了トグル */}
+            <View style={styles.completedRow}>
+              <Text style={styles.label}>完了した？</Text>
+              <View style={styles.toggleGroup}>
+                <TouchableOpacity
+                  style={[styles.toggleBtn, completed && styles.toggleBtnActive]}
+                  onPress={() => setCompleted(true)}
+                >
+                  <Text style={[styles.toggleBtnText, completed && styles.toggleBtnTextActive]}>完了</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleBtn, !completed && styles.toggleBtnSkip]}
+                  onPress={() => setCompleted(false)}
+                >
+                  <Text style={[styles.toggleBtnText, !completed && styles.toggleBtnTextSkip]}>未完</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitBtn, mutation.isPending && styles.submitBtnDisabled]}
+              onPress={submit}
+              disabled={mutation.isPending}
+            >
+              <Text style={styles.submitBtnText}>{mutation.isPending ? '記録中...' : '記録する'}</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.sectionTitle}>消費カロリー推移</Text>
+            <KcalChart data={kcalChartData} isMock={isMock} />
+
+            <Text style={styles.sectionTitle}>履歴</Text>
+            {isMock && (
+              <Text style={styles.emptyHint}>運動を記録すると履歴が表示されます</Text>
+            )}
           </View>
-          <View style={[styles.badge, item.completed ? styles.badgeDone : styles.badgeSkip]}>
-            <Text style={[styles.badgeText, item.completed ? styles.badgeTextDone : styles.badgeTextSkip]}>{item.completed ? '完了' : '未完'}</Text>
-          </View>
-        </View>
-      ))}
-    </ScrollView>
+        }
+        contentContainerStyle={styles.container}
+      />
+
+      <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
+      {streak.celebration && (
+        <StreakCelebrationModal
+          visible={streak.visible}
+          streakDays={streak.celebration.days}
+          badgeName={streak.celebration.badgeName}
+          isComeback={streak.celebration.isComeback}
+          onDismiss={streak.dismiss}
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:            { flex: 1, backgroundColor: colors.bg.primary, padding: 16 },
-  label:                { fontSize: 13, color: colors.text.secondary, marginBottom: 6, marginTop: 12 },
-  presetRow:            { flexDirection: 'row', marginBottom: 8 },
-  presetChip:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.bg.cardAlt, marginRight: 8, borderWidth: 1, borderColor: colors.border.subtle },
-  presetChipActive:     { backgroundColor: 'rgba(47,200,255,0.2)', borderColor: colors.neon.blue },
-  presetChipText:       { fontSize: 14, color: colors.text.secondary },
-  presetChipTextActive: { color: colors.neon.blue, fontWeight: '600' },
-  input:                { backgroundColor: colors.bg.card, borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 4, borderWidth: 1, borderColor: colors.border.subtle, color: colors.text.primary },
-  row:                  { flexDirection: 'row', gap: 8 },
-  halfInput:            { flex: 1 },
-  switchRow:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  submitBtn:            { backgroundColor: colors.neon.green, borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 16 },
-  submitBtnText:        { color: colors.bg.primary, fontSize: 16, fontWeight: 'bold' },
-  sectionTitle:         { fontSize: 16, fontWeight: 'bold', marginTop: 24, marginBottom: 8, color: colors.text.primary },
-  mockLabel:            { fontSize: 10, color: colors.text.muted, alignSelf: 'flex-end', marginBottom: 4 },
-  chartCard:            { backgroundColor: colors.bg.card, borderRadius: 12, padding: 12, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: colors.border.subtle },
-  chartHeaderRow:       { flexDirection: 'row', justifyContent: 'space-between', width: CHART_WIDTH, marginBottom: 4 },
-  chartMax:             { fontSize: 11, color: colors.text.secondary },
-  chartMin:             { fontSize: 11, color: colors.text.secondary },
-  chartFooterRow:       { flexDirection: 'row', justifyContent: 'space-between', width: CHART_WIDTH, marginTop: 4 },
-  chartDateText:        { fontSize: 11, color: colors.text.muted },
-  historyItem:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bg.card, padding: 14, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: colors.border.subtle },
-  historyName:          { fontSize: 15, fontWeight: '500', color: colors.text.primary },
-  historyMeta:          { fontSize: 12, color: colors.text.secondary, marginTop: 2 },
-  badge:                { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  badgeDone:            { backgroundColor: 'rgba(74,222,128,0.2)' },
-  badgeSkip:            { backgroundColor: 'rgba(255,128,51,0.2)' },
-  badgeText:            { fontSize: 12, fontWeight: 'bold' },
-  badgeTextDone:        { color: colors.neon.green },
-  badgeTextSkip:        { color: colors.neon.orange },
+  container:               { padding: 16, paddingBottom: 32 },
+  label:                   { fontSize: 13, color: colors.text.secondary, marginBottom: 6, marginTop: 12 },
+  presetRow:               { flexDirection: 'row', marginBottom: 8 },
+  presetChip:              { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.bg.cardAlt, marginRight: 8, borderWidth: 1, borderColor: colors.border.subtle },
+  presetChipActive:        { backgroundColor: 'rgba(47,200,255,0.2)', borderColor: colors.neon.blue },
+  presetChipText:          { fontSize: 14, color: colors.text.secondary },
+  presetChipTextActive:    { color: colors.neon.blue, fontWeight: '600' },
+  input:                   { backgroundColor: colors.bg.card, borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 4, borderWidth: 1, borderColor: colors.border.subtle, color: colors.text.primary },
+  row:                     { flexDirection: 'row', gap: 8 },
+  halfInput:               { flex: 1 },
+  completedRow:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  toggleGroup:             { flexDirection: 'row', gap: 8 },
+  toggleBtn:               { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.bg.cardAlt },
+  toggleBtnActive:         { backgroundColor: 'rgba(61,202,110,0.2)', borderColor: colors.neon.green },
+  toggleBtnSkip:           { backgroundColor: 'rgba(255,122,32,0.15)', borderColor: colors.neon.orange },
+  toggleBtnText:           { fontSize: 13, color: colors.text.muted, fontWeight: '600' },
+  toggleBtnTextActive:     { color: colors.neon.green },
+  toggleBtnTextSkip:       { color: colors.neon.orange },
+  submitBtn:               { backgroundColor: colors.neon.green, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 16, minHeight: 50, justifyContent: 'center' },
+  submitBtnDisabled:       { opacity: 0.6 },
+  submitBtnText:           { color: colors.bg.primary, fontSize: 16, fontWeight: 'bold' },
+  sectionTitle:            { fontSize: 16, fontWeight: 'bold', marginTop: 24, marginBottom: 8, color: colors.text.primary },
+  emptyHint:               { fontSize: 13, color: colors.text.muted, textAlign: 'center', paddingVertical: 12 },
+  chartCard:               { backgroundColor: colors.bg.card, borderRadius: 12, padding: 12, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: colors.border.subtle },
+  mockBanner:              { backgroundColor: 'rgba(106,122,150,0.15)', borderRadius: 8, padding: 10, marginBottom: 8, alignSelf: 'stretch' },
+  mockBannerText:          { fontSize: 12, color: colors.text.muted, textAlign: 'center' },
+  chartHeaderRow:          { flexDirection: 'row', justifyContent: 'space-between', width: CHART_WIDTH, marginBottom: 4 },
+  chartStat:               { fontSize: 11, color: colors.text.secondary },
+  chartFooterRow:          { flexDirection: 'row', justifyContent: 'space-between', width: CHART_WIDTH, marginTop: 4 },
+  chartDateText:           { fontSize: 11, color: colors.text.muted },
+  historyItem:             { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg.card, padding: 14, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: colors.border.subtle, gap: 12 },
+  historyDate:             { alignItems: 'center', minWidth: 36 },
+  historyDateText:         { fontSize: 11, color: colors.text.muted },
+  historyMain:             { flex: 1 },
+  historyName:             { fontSize: 15, fontWeight: '500', color: colors.text.primary },
+  historyMeta:             { fontSize: 12, color: colors.text.secondary, marginTop: 2 },
+  completedBadge:          { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  completedBadgeDone:      { backgroundColor: 'rgba(61,202,110,0.2)' },
+  completedBadgeSkip:      { backgroundColor: 'rgba(255,122,32,0.2)' },
+  completedBadgeText:      { fontSize: 12, fontWeight: 'bold' },
+  completedBadgeTextDone:  { color: colors.neon.green },
+  completedBadgeTextSkip:  { color: colors.neon.orange },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { HomeIcon, RecordIcon, GroupIcon, SettingsIcon } from '../components/ui/icons';
+import OfflineBanner from '../components/OfflineBanner';
 import { colors } from '../theme/colors';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -80,6 +81,8 @@ export default function AppNavigator() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
+    <OfflineBanner />
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!onboardingCompleted ? (
@@ -99,5 +102,6 @@ export default function AppNavigator() {
         )}
       </Stack.Navigator>
     </NavigationContainer>
+    </View>
   );
 }
