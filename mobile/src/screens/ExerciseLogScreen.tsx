@@ -6,7 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Polyline, Circle } from 'react-native-svg';
 import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { recordExercise, getExerciseHistory } from '../api/logs';
+import { recordExercise, getExerciseHistory, deleteExerciseLog } from '../api/logs';
 import { colors } from '../theme/colors';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
 import { useToast } from '../hooks/useToast';
@@ -156,8 +156,20 @@ export default function ExerciseLogScreen() {
 
   const allExercises = [...PRESETS, ...customExercises];
 
-  const renderHistoryItem = useCallback(({ item, index }: { item: any; index: number }) => (
-    <View style={styles.historyItem}>
+  const renderHistoryItem = useCallback(({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={styles.historyItem}
+      onLongPress={() => {
+        Alert.alert('運動記録を削除', `「${item.exerciseName}」を削除しますか？`, [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: '削除', style: 'destructive', onPress: async () => {
+            try { await deleteExerciseLog(item.recordedAt); refetch(); }
+            catch { Alert.alert('エラー', '削除に失敗しました'); }
+          }},
+        ]);
+      }}
+      delayLongPress={500}
+    >
       <View style={styles.historyDate}>
         <Text style={styles.historyDateText}>{item.recordedAt?.slice(5, 10)}</Text>
       </View>
@@ -172,8 +184,8 @@ export default function ExerciseLogScreen() {
           {item.completed ? '完了' : '未完'}
         </Text>
       </View>
-    </View>
-  ), []);
+    </TouchableOpacity>
+  ), [refetch]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>

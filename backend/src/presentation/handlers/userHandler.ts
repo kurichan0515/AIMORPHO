@@ -37,6 +37,7 @@ export const handler = async (event: LambdaEvent) => {
     if (path === '/users/me'           && httpMethod === 'DELETE') return fromResult(await userSvc.deleteAccount(userId as never));
     if (path === '/users/me/streak'    && httpMethod === 'GET')    return fromResult(await userSvc.getStreak(userId as never));
     if (path === '/users/me/badges'    && httpMethod === 'GET')    return fromResult(await userSvc.getBadges(userId as never));
+    if (path === '/users/me/progress'  && httpMethod === 'GET')    return fromResult(await userSvc.getProgress(userId as never));
     return error('Not found', 404);
   } catch (err) {
     console.error(err);

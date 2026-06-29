@@ -10,7 +10,7 @@ import { WeightLog } from '../../domain/body-log/WeightLog';
 import { ExerciseLog } from '../../domain/body-log/ExerciseLog';
 import { emptyStreak, updateStreak, STREAK_MILESTONES } from '../../domain/user/Streak';
 import { checkRecoveryCondition, calcUserTDEE } from '../../domain/health/RecoveryService';
-import { Result, ok } from '../../domain/shared/Result';
+import { Result, ok, err } from '../../domain/shared/Result';
 import { UserId } from '../../domain/shared/types';
 import { toJSTDate } from '../../infrastructure/dynamodb/client';
 
@@ -51,6 +51,18 @@ export class BodyLogApplicationService {
     const streakMilestone = STREAK_MILESTONES.includes(newStreak.currentDays) ? newStreak.currentDays : null;
 
     return ok({ weightKg, bodyFatPct, recordedAt: now, newBadges, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
+  }
+
+  async deleteWeight(userId: UserId, recordedAt: string): Promise<Result<unknown>> {
+    if (!recordedAt) return err('recordedAt required', 400);
+    await this.bodyLogRepo.deleteWeight(userId, recordedAt);
+    return ok({ deleted: true });
+  }
+
+  async deleteExercise(userId: UserId, recordedAt: string): Promise<Result<unknown>> {
+    if (!recordedAt) return err('recordedAt required', 400);
+    await this.bodyLogRepo.deleteExercise(userId, recordedAt);
+    return ok({ deleted: true });
   }
 
   async getWeightHistory(userId: UserId, from: string, to: string, limit: number, cursor?: string): Promise<Result<unknown>> {

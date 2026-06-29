@@ -18,6 +18,9 @@ export const handler = async (event: LambdaEvent) => {
     if (path === '/logs/weight'   && httpMethod === 'GET') {
       return fromResult(await bodyLogSvc.getWeightHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10), qs.cursor));
     }
+    if (path === '/logs/weight'   && httpMethod === 'DELETE') {
+      return fromResult(await bodyLogSvc.deleteWeight(userId as never, qs.at ?? ''));
+    }
     if (path === '/logs/exercise' && httpMethod === 'POST') {
       const { exerciseName, durationMin, kcalBurned, completed, muscleGroups } = body as {
         exerciseName?: string; durationMin?: number; kcalBurned?: number; completed?: boolean; muscleGroups?: string[];
@@ -27,6 +30,9 @@ export const handler = async (event: LambdaEvent) => {
     }
     if (path === '/logs/exercise' && httpMethod === 'GET') {
       return fromResult(await bodyLogSvc.getExerciseHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10), qs.cursor));
+    }
+    if (path === '/logs/exercise' && httpMethod === 'DELETE') {
+      return fromResult(await bodyLogSvc.deleteExercise(userId as never, qs.at ?? ''));
     }
     return error('Not found', 404);
   } catch (err) {

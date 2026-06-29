@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
+import { getUserProgress } from '../api/logs';
 import { colors } from '../theme/colors';
 
 type Category = 'streak' | 'log' | 'achieve';
@@ -50,12 +51,34 @@ export default function BadgesScreen() {
     queryKey: ['badges'],
     queryFn: () => api.get('/users/me/badges').then(r => r.data as any[]),
   });
+  const { data: progress } = useQuery({
+    queryKey: ['userProgress'],
+    queryFn: getUserProgress,
+    staleTime: 1000 * 60 * 5,
+  });
+  const { data: streak } = useQuery({
+    queryKey: ['streak'],
+    queryFn: () => api.get('/users/me/streak').then(r => r.data),
+    staleTime: 1000 * 60 * 5,
+  });
 
   if (isLoading) {
     return <ActivityIndicator style={{ flex: 1 }} color={colors.neon.blue} />;
   }
 
   const earnedSet = new Set((earned || []).map((b: any) => b.badgeId as string));
+
+  // ロックバッジの進捗計算（型ごとに現在値を返す）
+  const getProgress = (reward: RewardDef): { current: number; total: number } | null => {
+    if (earnedSet.has(reward.id)) return null;
+    const streakDays = streak?.currentDays ?? 0;
+    if (reward.category === 'streak') {
+      const thresholds: Record<string, number> = { streak_3: 3, streak_7: 7, streak_14: 14, streak_30: 30, streak_60: 60, streak_100: 100 };
+      const total = thresholds[reward.id];
+      return total ? { current: Math.min(streakDays, total), total } : null;
+    }
+    return null;
+  };
 
   const total = ALL_REWARDS.length;
   const got   = earnedSet.size;
@@ -114,6 +137,17 @@ export default function BadgesScreen() {
                       </Text>
                       <Text style={[s.cardName, !isEarned && s.lockedText]}>{r.name}</Text>
                       <Text style={[s.cardDesc, !isEarned && s.lockedDesc]}>{r.desc}</Text>
+                      {!isEarned && (() => {
+                        const prog = getProgress(r);
+                        return prog ? (
+                          <View style={s.progressWrap}>
+                            <View style={s.badgeProgressTrack}>
+                              <View style={[s.badgeProgressFill, { width: `${Math.round(prog.current / prog.total * 100)}%` as any, backgroundColor: meta.color }]} />
+                            </View>
+                            <Text style={[s.progressText, { color: meta.color }]}>{prog.current}/{prog.total}</Text>
+                          </View>
+                        ) : null;
+                      })()}
                       <View style={[s.statusBadge, isEarned ? { backgroundColor: meta.color } : s.lockedBadge]}>
                         <Text style={[s.statusBadgeText, !isEarned && s.lockedBadgeText]}>
                           {isEarned ? 'GET' : 'LOCK'}
@@ -163,4 +197,8 @@ const s = StyleSheet.create({
   statusBadgeText: { fontSize: 9, fontWeight: '800', color: colors.bg.primary, letterSpacing: 0.5 },
   lockedBadge:     { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border.subtle },
   lockedBadgeText: { color: colors.text.muted },
+  progressWrap:        { marginTop: 6, gap: 2 },
+  badgeProgressTrack:  { height: 3, backgroundColor: colors.bg.cardAlt, borderRadius: 2, overflow: 'hidden' },
+  badgeProgressFill:   { height: 3, borderRadius: 2 },
+  progressText:        { fontSize: 9, fontWeight: '700', marginTop: 1 },
 });

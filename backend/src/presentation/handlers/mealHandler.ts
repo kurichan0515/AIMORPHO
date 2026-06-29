@@ -33,6 +33,9 @@ export const handler = async (event: LambdaEvent) => {
         s3Key, menuName: menuName ?? '', kcal, proteinG: proteinG ?? 0, fatG: fatG ?? 0, carbG: carbG ?? 0, confidence, geminiRaw,
       }), 201);
     }
+    if (path === '/logs/meal'            && httpMethod === 'DELETE') {
+      return fromResult(await mealSvc.deleteMeal(userId as never, qs.at ?? ''));
+    }
     if (path === '/logs/meal'            && httpMethod === 'GET')  {
       return fromResult(await mealSvc.getMealHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10), qs.cursor));
     }

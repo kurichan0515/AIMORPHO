@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, ScrollView,
+  KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../api/client';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { colors } from '../theme/colors';
+import Toast from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 
 type GoalMode = 'diet' | 'maintain' | 'bulk';
 
@@ -23,6 +25,7 @@ export default function OnboardingGoalScreen() {
   const [targetBodyFatPct, setTargetBodyFatPct] = useState('');
   const [mode, setMode] = useState<GoalMode>('maintain');
   const [loading, setLoading] = useState(false);
+  const { toastVisible, toastMessage, showToast, hideToast } = useToast();
 
   const stdWeight    = heightCm ? Math.round(heightCm * heightCm * 22 / 10000 * 10) / 10 : null;
   const athleteWeight = heightCm ? Math.round(heightCm * heightCm * 24 / 10000 * 10) / 10 : null;
@@ -38,7 +41,7 @@ export default function OnboardingGoalScreen() {
   const next = async () => {
     const tw = parseFloat(targetWeight);
     if (!targetWeight || isNaN(tw) || tw <= 0) {
-      Alert.alert('入力必須', '目標体重を入力してください');
+      showToast('目標体重を入力してください');
       return;
     }
     const targetBF = targetBodyFatPct ? parseFloat(targetBodyFatPct) : undefined;
@@ -47,7 +50,7 @@ export default function OnboardingGoalScreen() {
       await api.post('/users/me/goal', { targetWeight: tw, targetBodyFatPct: targetBF, mode });
       navigation.navigate('OnboardingAvatar');
     } catch {
-      Alert.alert('エラー', '設定に失敗しました');
+      showToast('設定に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -56,6 +59,7 @@ export default function OnboardingGoalScreen() {
   const skip = () => navigation.navigate('OnboardingAvatar');
 
   return (
+    <View style={{ flex: 1 }}>
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg.primary }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.stepIndicator}>
@@ -144,6 +148,8 @@ export default function OnboardingGoalScreen() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} type={toastMessage.includes('失敗') || toastMessage.includes('入力') ? 'error' : 'success'} />
+    </View>
   );
 }
 

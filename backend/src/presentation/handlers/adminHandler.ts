@@ -12,6 +12,22 @@ const verifyAdmin = (event: LambdaEvent): boolean => {
   return !!ADMIN_KEY && key === ADMIN_KEY;
 };
 
+// インスタンスローカルな簡易レートリミット（Lambda cold start でリセット）
+// 本番では DynamoDB TTL ベースの実装を推奨
+const _notifyCalls: number[] = [];
+const NOTIFY_RATE_LIMIT = 10; // 1時間あたり最大10回
+const NOTIFY_WINDOW_MS  = 60 * 60 * 1000;
+
+const isNotifyRateLimited = (): boolean => {
+  const now = Date.now();
+  const recent = _notifyCalls.filter(t => now - t < NOTIFY_WINDOW_MS);
+  _notifyCalls.length = 0;
+  _notifyCalls.push(...recent);
+  if (recent.length >= NOTIFY_RATE_LIMIT) return true;
+  _notifyCalls.push(now);
+  return false;
+};
+
 export const handler = async (event: LambdaEvent) => {
   if (!verifyAdmin(event)) return error('Forbidden', 403);
 
@@ -20,6 +36,7 @@ export const handler = async (event: LambdaEvent) => {
 
   try {
     if (path === '/admin/notifications/send' && httpMethod === 'POST') {
+      if (isNotifyRateLimited()) return error('Rate limit exceeded: max 10 sends per hour', 429);
       const { title, body: msgBody, screen, userIds } = body as {
         title: string; body: string; screen?: string; userIds?: string[];
       };

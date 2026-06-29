@@ -66,6 +66,14 @@ export class UserApplicationService {
     return ok(badges);
   }
 
+  async getProgress(userId: UserId): Promise<Result<unknown>> {
+    const streak = await this.streakRepo.getStreak(userId);
+    return ok({
+      streakDays:        streak?.currentDays   ?? 0,
+      longestStreakDays: streak?.longestDays    ?? 0,
+    });
+  }
+
   async deleteAccount(userId: UserId): Promise<Result<{ message: string }>> {
     await this.avatarRepo.delete(userId);
     await this.userRepo.deleteAccount(userId);
