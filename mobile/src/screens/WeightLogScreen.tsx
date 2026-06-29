@@ -196,13 +196,13 @@ export default function WeightLogScreen() {
       { text: '削除', style: 'destructive', onPress: async () => {
         try {
           await deleteWeightLog(item.recordedAt);
-          refetch();
+          qc.resetQueries({ queryKey: ['weightHistory'] });
         } catch {
           Alert.alert('エラー', '削除に失敗しました');
         }
       }},
     ]);
-  }, [refetch]);
+  }, [qc]);
 
   const renderHistoryItem = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity

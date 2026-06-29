@@ -35,7 +35,7 @@ const badgeSvc     = new BadgeService(badgeRepo);
 
 // Application Services
 export const authSvc         = new AuthApplicationService(userRepo, blacklist);
-export const userSvc         = new UserApplicationService(userRepo, userRepo, userRepo, badgeRepo, avatarRepo);
+export const userSvc         = new UserApplicationService(userRepo, userRepo, userRepo, badgeRepo, avatarRepo, mealRepo, bodyLogRepo);
 export const bodyLogSvc      = new BodyLogApplicationService(userRepo, userRepo, userRepo, bodyLogRepo, avatarRepo, mealRepo, aiSvc, badgeSvc);
 export const mealSvc         = new MealApplicationService(userRepo, mealRepo, usageRepo, storageSvc, aiSvc, badgeSvc, userRepo);
 export const aiSvcApp        = new AiApplicationService(userRepo, userRepo, userRepo, avatarRepo, bodyLogRepo, mealRepo, adviceRepo, usageRepo, aiSvc);

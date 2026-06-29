@@ -91,7 +91,8 @@ export default function OnboardingProfileScreen() {
       navigation.navigate('OnboardingGoal');
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? err?.message ?? String(err);
-      console.error('[ProfileSave]', msg, err?.response?.status);
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('../utils/logger').logger.error('[ProfileSave]', msg, err?.response?.status);
       Alert.alert('エラー', `保存に失敗しました\n${msg}`);
     } finally {
       setLoading(false);

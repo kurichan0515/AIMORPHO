@@ -428,11 +428,11 @@ export default function MealLogScreen() {
             style={styles.historyItem}
             onPress={() => fillFromHistory(item)}
             onLongPress={() => {
-              if (isMock) return;
+              if (isMock) { showToast('記録を追加するとここに表示されます'); return; }
               Alert.alert('食事記録を削除', `「${item.menuName}」を削除しますか？`, [
                 { text: 'キャンセル', style: 'cancel' },
                 { text: '削除', style: 'destructive', onPress: async () => {
-                  try { await deleteMealLog(item.recordedAt); refetch(); }
+                  try { await deleteMealLog(item.recordedAt); qc.resetQueries({ queryKey: ['mealHistory'] }); }
                   catch { Alert.alert('エラー', '削除に失敗しました'); }
                 }},
               ]);

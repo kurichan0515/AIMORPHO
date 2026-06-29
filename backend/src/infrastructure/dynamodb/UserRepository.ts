@@ -1,5 +1,5 @@
 import {
-  GetCommand, PutCommand, UpdateCommand, ScanCommand,
+  GetCommand, PutCommand, UpdateCommand, ScanCommand, QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IUserRepository } from '../../domain/user/IUserRepository';
@@ -107,13 +107,33 @@ export class UserRepository implements IUserRepository, IGoalRepository, IStreak
 
   async deleteAccount(userId: UserId): Promise<void> {
     const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
-    await db.send(new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { PK: `USER#${userId}`, SK: 'PROFILE' },
-      UpdateExpression: 'SET deleted = :true, deletedAt = :now, #ttl = :ttl',
-      ExpressionAttributeNames: { '#ttl': 'ttl' },
-      ExpressionAttributeValues: { ':true': true, ':now': new Date().toISOString(), ':ttl': ttl },
-    }));
+    const now = new Date().toISOString();
+
+    // ユーザーの全 DynamoDB アイテムを取得（ページネーション対応）
+    const allKeys: { PK: string; SK: string }[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const r = await db.send(new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': `USER#${userId}` },
+        ProjectionExpression: 'PK, SK',
+        ExclusiveStartKey: lastKey,
+      }));
+      allKeys.push(...(r.Items ?? []) as any[]);
+      lastKey = r.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+
+    // 全アイテムに TTL + deleted フラグをセット（論理削除、30日後に自動消去）
+    await Promise.all(allKeys.map(key =>
+      db.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: key.PK, SK: key.SK },
+        UpdateExpression: 'SET deleted = :true, deletedAt = :now, #ttl = :ttl',
+        ExpressionAttributeNames: { '#ttl': 'ttl' },
+        ExpressionAttributeValues: { ':true': true, ':now': now, ':ttl': ttl },
+      }))
+    ));
   }
 
   async upgradeToRegistered(userId: UserId, email: string, passwordHash: string): Promise<void> {
