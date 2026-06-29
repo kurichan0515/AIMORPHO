@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Alert, Switch,
+  ScrollView, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../api/client';
@@ -245,17 +245,21 @@ export default function OnboardingProfileScreen() {
           ))}
         </View>
 
-        <View style={styles.gymRow}>
-          <View>
-            <Text style={styles.label}>ジムに通っている <Text style={styles.optional}>（任意）</Text></Text>
-            <Text style={styles.gymDesc}>ONにするとジムのウェイトメニューを運動提案に含めます</Text>
-          </View>
-          <Switch
-            value={form.hasGym}
-            onValueChange={v => setForm(p => ({ ...p, hasGym: v }))}
-            trackColor={{ false: colors.bg.cardAlt, true: colors.neon.blue }}
-            thumbColor={colors.text.primary}
-          />
+        <Text style={styles.label}>ジムに通っている <Text style={styles.optional}>（任意）</Text></Text>
+        <Text style={styles.gymDesc}>ONにするとジムのウェイトメニューを運動提案に含めます</Text>
+        <View style={styles.gymToggleRow}>
+          <TouchableOpacity
+            style={[styles.gymToggleBtn, form.hasGym && styles.gymToggleBtnActive]}
+            onPress={() => setForm(p => ({ ...p, hasGym: true }))}
+          >
+            <Text style={[styles.gymToggleText, form.hasGym && styles.gymToggleTextActive]}>通っている</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.gymToggleBtn, !form.hasGym && styles.gymToggleBtnOff]}
+            onPress={() => setForm(p => ({ ...p, hasGym: false }))}
+          >
+            <Text style={[styles.gymToggleText, !form.hasGym && styles.gymToggleTextOff]}>通っていない</Text>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.nextBtn} onPress={next} disabled={loading}>
@@ -311,7 +315,14 @@ const styles = StyleSheet.create({
   compoundUnit:     { fontSize: 11, color: colors.text.secondary, letterSpacing: 0.3 },
   decimalDot:       { fontSize: 22, fontWeight: '700', color: colors.text.secondary, marginBottom: 4, lineHeight: 28 },
   gymRow:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bg.card, borderRadius: 10, padding: 14, marginTop: 16, marginBottom: 4, borderWidth: 1, borderColor: colors.border.subtle },
-  gymDesc:          { fontSize: 11, color: colors.text.muted, marginTop: 2, maxWidth: 240 },
+  gymDesc:          { fontSize: 11, color: colors.text.muted, marginTop: 2, marginBottom: 10 },
+  gymToggleRow:     { flexDirection: 'row', gap: 10, marginTop: 4, marginBottom: 4 },
+  gymToggleBtn:     { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.bg.card, alignItems: 'center' },
+  gymToggleBtnActive:{ backgroundColor: 'rgba(47,200,255,0.15)', borderColor: colors.neon.blue },
+  gymToggleBtnOff:  { backgroundColor: 'rgba(106,122,150,0.12)', borderColor: colors.border.subtle },
+  gymToggleText:    { fontSize: 14, fontWeight: '600', color: colors.text.muted },
+  gymToggleTextActive: { color: colors.neon.blue },
+  gymToggleTextOff: { color: colors.text.secondary },
   nextBtn:          { backgroundColor: colors.neon.blue, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 16 },
   nextBtnText:      { color: colors.bg.primary, fontSize: 16, fontWeight: 'bold' },
 });

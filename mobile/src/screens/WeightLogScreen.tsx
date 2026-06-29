@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList, Vibration } from 'react-native';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { recordWeight, getWeightHistory } from '../api/logs';
@@ -144,6 +144,7 @@ export default function WeightLogScreen() {
       setBodyFatInput('');
       refetch();
       qc.invalidateQueries({ queryKey: ['streak'] });
+      Vibration.vibrate(40);
       streak.trigger(data);
 
       const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
