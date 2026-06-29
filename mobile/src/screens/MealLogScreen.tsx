@@ -473,12 +473,12 @@ export default function MealLogScreen() {
   );
 }
 
-const MacroItem = ({ label, value }: { label: string; value: string }) => (
+const MacroItem = React.memo(({ label, value }: { label: string; value: string }) => (
   <View style={styles.macroItem}>
     <Text style={styles.macroLabel}>{label}</Text>
     <Text style={styles.macroValue}>{value}</Text>
   </View>
-);
+));
 
 const styles = StyleSheet.create({
   container:            { flex: 1, backgroundColor: colors.bg.primary, padding: 16 },

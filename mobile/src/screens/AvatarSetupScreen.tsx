@@ -80,7 +80,11 @@ export default function AvatarSetupScreen() {
             {[0, 1, 2, 3, 4].map(i => (
               <View key={i} style={[styles.avatarCell, bodyState === i && styles.avatarCellActive]}>
                 {avatarImages[i] ? (
-                  <Image source={{ uri: avatarImages[i]! }} style={styles.avatarThumb} />
+                  <Image
+                    source={{ uri: avatarImages[i]! }}
+                    style={styles.avatarThumb}
+                    defaultSource={require('../assets/app-icon-source.png')}
+                  />
                 ) : (
                   <View style={styles.avatarThumbPlaceholder} />
                 )}

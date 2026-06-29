@@ -30,31 +30,48 @@ const thisWeekStart = (): string => {
   return d.toISOString().slice(0, 10);
 };
 
-function WeeklySummary() {
+// SummaryItem を先に定義（WeeklySummary が使うため）
+const SummaryItem = React.memo(function SummaryItem({ icon, label, value, unit, highlight }: { icon: string; label: string; value: number; unit: string; highlight?: boolean }) {
+  return (
+    <View style={s.summaryItem}>
+      <Text style={s.summaryIcon}>{icon}</Text>
+      <Text style={[s.summaryValue, highlight && { color: colors.neon.orange }]}>{value}</Text>
+      <Text style={s.summaryUnit}>{unit}</Text>
+      <Text style={s.summaryLabel}>{label}</Text>
+    </View>
+  );
+});
+
+const WeeklySummary = React.memo(function WeeklySummary() {
   const weekStart = thisWeekStart();
 
-  const { data: meals } = useQuery({
+  const { data: mealPages } = useQuery({
     queryKey: ['mealHistory'],
     queryFn: () => getMealHistory({ limit: 50 }),
     staleTime: 1000 * 60 * 2,
+    refetchOnMount: false,
   });
-  const { data: exercises } = useQuery({
+  const { data: exercisePages } = useQuery({
     queryKey: ['exerciseHistory'],
     queryFn: () => getExerciseHistory({ limit: 50 }),
     staleTime: 1000 * 60 * 2,
+    refetchOnMount: false,
   });
   const { data: streak } = useQuery({
     queryKey: ['streak'],
     queryFn: () => api.get('/users/me/streak').then(r => r.data),
     staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
   });
 
-  const mealCount = (meals ?? []).filter((m: any) => m.recordedAt?.slice(0, 10) >= weekStart).length;
-  const exerciseCount = (exercises ?? []).filter((e: any) => e.recordedAt?.slice(0, 10) >= weekStart).length;
+  const allMeals = (mealPages as any)?.pages?.flatMap((p: any) => p.items ?? p) ?? (mealPages as any) ?? [];
+  const allExercises = (exercisePages as any)?.pages?.flatMap((p: any) => p.items ?? p) ?? (exercisePages as any) ?? [];
+  const mealCount = allMeals.filter((m: any) => m.recordedAt?.slice(0, 10) >= weekStart).length;
+  const exerciseCount = allExercises.filter((e: any) => e.recordedAt?.slice(0, 10) >= weekStart).length;
   const streakDays = streak?.currentDays ?? 0;
 
   return (
-    <View style={s.summary}>
+    <View style={s.summary} accessibilityLabel={`今週: 食事${mealCount}回、運動${exerciseCount}回、${streakDays}日連続`}>
       <Text style={s.summaryTitle}>今週の記録</Text>
       <View style={s.summaryRow}>
         <SummaryItem icon="🍽" label="食事" value={mealCount} unit="回" />
@@ -65,18 +82,7 @@ function WeeklySummary() {
       </View>
     </View>
   );
-}
-
-function SummaryItem({ icon, label, value, unit, highlight }: { icon: string; label: string; value: number; unit: string; highlight?: boolean }) {
-  return (
-    <View style={s.summaryItem}>
-      <Text style={s.summaryIcon}>{icon}</Text>
-      <Text style={[s.summaryValue, highlight && { color: colors.neon.orange }]}>{value}</Text>
-      <Text style={s.summaryUnit}>{unit}</Text>
-      <Text style={s.summaryLabel}>{label}</Text>
-    </View>
-  );
-}
+});
 
 export default function LogScreen() {
   const [tab, setTab] = useState(MEAL_TAB_INDEX);
@@ -104,6 +110,9 @@ export default function LogScreen() {
             key={t.key}
             style={[styles.tab, tab === i && styles.tabActive]}
             onPress={() => goToTab(i)}
+            accessibilityLabel={t.label}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === i }}
           >
             <Text style={[styles.tabText, tab === i && styles.tabTextActive]}>{t.label}</Text>
           </TouchableOpacity>

@@ -30,7 +30,7 @@ const GOAL_MODE_LABELS: Record<string, string> = {
   bulk:     '増量',
 };
 
-function Section({ label, sub }: { label: string; sub: string }) {
+const Section = React.memo(function Section({ label, sub }: { label: string; sub: string }) {
   return (
     <View style={sec.row}>
       <View style={sec.bar} />
@@ -38,11 +38,16 @@ function Section({ label, sub }: { label: string; sub: string }) {
       <Text style={sec.label}>{label}</Text>
     </View>
   );
-}
+});
 
-function MenuRow({ label, value, onPress }: { label: string; value?: string; onPress: () => void }) {
+const MenuRow = React.memo(function MenuRow({ label, value, onPress }: { label: string; value?: string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={m.row} onPress={onPress}>
+    <TouchableOpacity
+      style={m.row}
+      onPress={onPress}
+      accessibilityLabel={label}
+      accessibilityRole="button"
+    >
       <Text style={m.label}>{label}</Text>
       <View style={m.right}>
         {value ? <Text style={m.value}>{value}</Text> : null}
@@ -50,7 +55,7 @@ function MenuRow({ label, value, onPress }: { label: string; value?: string; onP
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 export default function ProfileScreen() {
   const { logout, isAnonymous, resetGuestData } = useAuthStore();
