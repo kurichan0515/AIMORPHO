@@ -4,7 +4,7 @@ import { UpdateProfileInput } from '../../domain/user/User';
 import { GoalMode } from '../../domain/shared/types';
 
 const ALLOWED_PROFILE_FIELDS: Array<keyof UpdateProfileInput> = [
-  'displayName', 'age', 'heightCm', 'weightKg', 'bodyFatPct', 'lifestyle', 'aiTone', 'hasGym', 'bodyBalance',
+  'displayName', 'age', 'heightCm', 'weightKg', 'bodyFatPct', 'lifestyle', 'aiTone', 'hasGym', 'bodyBalance', 'notificationsEnabled',
 ];
 
 export const handler = async (event: LambdaEvent) => {

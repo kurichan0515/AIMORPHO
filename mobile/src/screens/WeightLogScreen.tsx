@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList, Vibration } from 'react-native';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { recordWeight, getWeightHistory } from '../api/logs';
 import { colors } from '../theme/colors';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
@@ -132,10 +132,20 @@ export default function WeightLogScreen() {
   const streak = useStreakCelebration();
   const qc = useQueryClient();
 
-  const { data: history, refetch } = useQuery({
+  const {
+    data: historyPages,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['weightHistory'],
-    queryFn: () => getWeightHistory({ limit: 14 }),
+    queryFn: ({ pageParam }) => getWeightHistory({ limit: 20, cursor: pageParam as string | undefined }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
   });
+
+  const history = historyPages?.pages.flatMap(p => p.items) ?? [];
 
   const mutation = useMutation({
     mutationFn: ({ kg, bodyFatPct }: { kg: number; bodyFatPct?: number }) => recordWeight(kg, bodyFatPct),
@@ -250,7 +260,19 @@ export default function WeightLogScreen() {
           <Text style={styles.sectionTitle}>履歴</Text>
         </View>
       }
-      ListFooterComponent={<View style={{ height: 24 }} />}
+      ListFooterComponent={
+        <View style={{ paddingBottom: 24 }}>
+          {hasNextPage && (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              <Text style={styles.loadMoreText}>{isFetchingNextPage ? '読み込み中...' : 'もっと見る'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      }
     />
 
     <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
@@ -297,4 +319,6 @@ const styles = StyleSheet.create({
   historyValues:  { alignItems: 'flex-end' },
   historyWeight:  { fontSize: 14, fontWeight: 'bold', color: colors.text.primary },
   historyBodyFat: { fontSize: 11, color: colors.neon.orange, marginTop: 2 },
+  loadMoreBtn:    { marginHorizontal: 16, marginTop: 8, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border.subtle, alignItems: 'center' },
+  loadMoreText:   { fontSize: 14, color: colors.neon.blue, fontWeight: '600' },
 });

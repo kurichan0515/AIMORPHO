@@ -71,13 +71,13 @@ export class UserRepository implements IUserRepository, IGoalRepository, IStreak
     }));
   }
 
-  async listFcmTokensWithStreak(): Promise<{ userId: UserId; fcmToken: string; lastLoggedAt?: string }[]> {
+  async listFcmTokensWithStreak(): Promise<{ userId: UserId; fcmToken: string; lastLoggedAt?: string; notificationsEnabled?: boolean }[]> {
     const [profileScan, streakScan] = await Promise.all([
       db.send(new ScanCommand({
         TableName: TABLE_NAME,
         FilterExpression: 'SK = :sk AND attribute_exists(fcmToken)',
         ExpressionAttributeValues: { ':sk': 'PROFILE' },
-        ProjectionExpression: 'PK, fcmToken',
+        ProjectionExpression: 'PK, fcmToken, notificationsEnabled',
       })),
       db.send(new ScanCommand({
         TableName: TABLE_NAME,
@@ -96,7 +96,12 @@ export class UserRepository implements IUserRepository, IGoalRepository, IStreak
 
     return (profileScan.Items ?? []).map(item => {
       const userId = (item.PK as string).replace('USER#', '') as UserId;
-      return { userId, fcmToken: item.fcmToken as string, lastLoggedAt: streakMap.get(userId) };
+      return {
+        userId,
+        fcmToken: item.fcmToken as string,
+        lastLoggedAt: streakMap.get(userId),
+        notificationsEnabled: item.notificationsEnabled as boolean | undefined,
+      };
     });
   }
 

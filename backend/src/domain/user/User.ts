@@ -18,6 +18,7 @@ export type User = {
   timezone: string;
   createdAt: DateString;
   fcmToken?: string;
+  notificationsEnabled?: boolean;
   subscriptionTier?: 'free' | 'premium';
   subscriptionExpiresAt?: DateString;
   subscriptionStore?: 'apple' | 'google';
@@ -30,7 +31,7 @@ export type User = {
 export type UserProfile = Omit<User, 'passwordHash'>;
 
 export type UpdateProfileInput = Partial<Pick<User,
-  'displayName' | 'age' | 'heightCm' | 'weightKg' | 'bodyFatPct' | 'lifestyle' | 'aiTone' | 'hasGym' | 'bodyBalance'
+  'displayName' | 'age' | 'heightCm' | 'weightKg' | 'bodyFatPct' | 'lifestyle' | 'aiTone' | 'hasGym' | 'bodyBalance' | 'notificationsEnabled'
 >>;
 
 export const isPremium = (user: User): boolean => {

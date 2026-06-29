@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, TextInput, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { Vibration } from 'react-native';
 import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHistory } from '../api/logs';
 import { getAiUsage } from '../api/ai';
@@ -133,7 +133,20 @@ export default function MealLogScreen() {
 
   const showPremiumModal = (title: string, desc: string) => setPremiumModal({ visible: true, title, desc });
 
-  const { data: history, refetch } = useQuery({ queryKey: ['mealHistory'], queryFn: () => getMealHistory({ limit: 30 }) });
+  const {
+    data: historyPages,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['mealHistory'],
+    queryFn: ({ pageParam }) => getMealHistory({ limit: 30, cursor: pageParam as string | undefined }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
+  });
+
+  const history = historyPages?.pages.flatMap(p => p.items) ?? [];
   const { data: aiUsage, refetch: refetchUsage } = useQuery({ queryKey: ['aiUsage'], queryFn: getAiUsage, staleTime: 0 });
 
   const displayHistory: any[] = history?.length ? history : MOCK_MEAL_HISTORY;
@@ -426,6 +439,15 @@ export default function MealLogScreen() {
             </View>
           </TouchableOpacity>
         ))}
+        {hasNextPage && (
+          <TouchableOpacity
+            style={styles.loadMoreBtn}
+            onPress={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            <Text style={styles.loadMoreText}>{isFetchingNextPage ? '読み込み中...' : 'もっと見る'}</Text>
+          </TouchableOpacity>
+        )}
         <View style={{ height: 24 }} />
 
         <PremiumGateModal
@@ -515,4 +537,6 @@ const styles = StyleSheet.create({
   historyKcal:          { fontSize: 14, color: colors.neon.orange, fontWeight: 'bold' },
   historyMacro:         { fontSize: 11, color: colors.neon.blue },
   mockTag:              { fontSize: 9, color: colors.text.muted, borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
+  loadMoreBtn:          { marginTop: 4, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border.subtle, alignItems: 'center' },
+  loadMoreText:         { fontSize: 14, color: colors.neon.blue, fontWeight: '600' },
 });

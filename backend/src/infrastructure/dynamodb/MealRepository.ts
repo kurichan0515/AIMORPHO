@@ -24,15 +24,17 @@ export class MealRepository implements IMealRepository {
     }));
   }
 
-  async getHistory(userId: UserId, from: DateString, to: DateString, limit: number): Promise<MealLog[]> {
+  async getHistory(userId: UserId, from: DateString, to: DateString, limit: number, cursor?: string): Promise<{ items: MealLog[]; nextCursor: string | null }> {
     const r = await db.send(new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'PK = :pk AND SK BETWEEN :from AND :to',
       ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':from': `MEAL#${from}`, ':to': `MEAL#${to}` },
       ScanIndexForward: false,
       Limit: limit,
+      ExclusiveStartKey: cursor ? JSON.parse(Buffer.from(cursor, 'base64').toString()) : undefined,
     }));
-    return (r.Items ?? []).map(i => this.#map(userId, i));
+    const nextCursor = r.LastEvaluatedKey ? Buffer.from(JSON.stringify(r.LastEvaluatedKey)).toString('base64') : null;
+    return { items: (r.Items ?? []).map(i => this.#map(userId, i)), nextCursor };
   }
 
   async count(userId: UserId): Promise<number> {
