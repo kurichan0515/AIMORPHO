@@ -114,7 +114,10 @@ export default function ExerciseLogScreen() {
   const history = historyPages?.pages.flatMap(p => p.items) ?? [];
 
   const isMock = !history?.length;
-  const kcalChartData = [...(history || [])].filter((item: any) => item.kcalBurned).reverse();
+  const kcalChartData = [...(history || [])]
+    .filter(item => item.kcalBurned != null && item.kcalBurned > 0)
+    .map(item => ({ recordedAt: item.recordedAt, kcalBurned: item.kcalBurned as number }))
+    .reverse();
 
   const mutation = useMutation({
     mutationFn: () => recordExercise({

@@ -17,8 +17,8 @@ import { useIAP } from '../hooks/useIAP';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
 
-// 今日の日付文字列 (YYYY-MM-DD)
-const todayStr = () => new Date().toISOString().slice(0, 10);
+// 今日の日付文字列（コンポーネント外で一度だけ計算）
+const TODAY = new Date().toISOString().slice(0, 10);
 
 // TDEE 簡易計算
 const calcTDEE = (profile: any): number => {
@@ -211,9 +211,8 @@ export default function HomeScreen() {
 
   const streakDays = streakData?.currentDays ?? 0;
 
-  const today = todayStr();
   const todayKcal = (todayMeals ?? [])
-    .filter((m: any) => m.recordedAt?.slice(0, 10) === today)
+    .filter((m: any) => m.recordedAt?.slice(0, 10) === TODAY)
     .reduce((sum: number, m: any) => sum + (m.kcal ?? 0), 0);
   const tdee = calcTDEE(profile);
   const kcalPct = Math.min(todayKcal / tdee, 1);

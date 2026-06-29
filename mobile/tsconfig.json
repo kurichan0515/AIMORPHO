@@ -10,5 +10,6 @@
       "@components/*": ["src/components/*"],
       "@utils/*": ["src/utils/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", "src/__tests__/**"]
 }

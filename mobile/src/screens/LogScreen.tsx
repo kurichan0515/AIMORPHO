@@ -45,16 +45,17 @@ const SummaryItem = React.memo(function SummaryItem({ icon, label, value, unit, 
 const WeeklySummary = React.memo(function WeeklySummary() {
   const weekStart = thisWeekStart();
 
-  const { data: mealPages } = useQuery({
-    queryKey: ['mealHistory'],
-    queryFn: () => getMealHistory({ limit: 50 }),
-    staleTime: 1000 * 60 * 2,
+  // InfiniteQuery(['mealHistory']) と競合しないよう別 queryKey を使用
+  const { data: meals = [] } = useQuery({
+    queryKey: ['mealHistoryWeekly'],
+    queryFn: async () => { const p = await getMealHistory({ limit: 50 }); return p.items; },
+    staleTime: 1000 * 60 * 5,
     refetchOnMount: false,
   });
-  const { data: exercisePages } = useQuery({
-    queryKey: ['exerciseHistory'],
-    queryFn: () => getExerciseHistory({ limit: 50 }),
-    staleTime: 1000 * 60 * 2,
+  const { data: exercises = [] } = useQuery({
+    queryKey: ['exerciseHistoryWeekly'],
+    queryFn: async () => { const p = await getExerciseHistory({ limit: 50 }); return p.items; },
+    staleTime: 1000 * 60 * 5,
     refetchOnMount: false,
   });
   const { data: streak } = useQuery({
@@ -64,10 +65,8 @@ const WeeklySummary = React.memo(function WeeklySummary() {
     refetchOnMount: false,
   });
 
-  const allMeals = (mealPages as any)?.pages?.flatMap((p: any) => p.items ?? p) ?? (mealPages as any) ?? [];
-  const allExercises = (exercisePages as any)?.pages?.flatMap((p: any) => p.items ?? p) ?? (exercisePages as any) ?? [];
-  const mealCount = allMeals.filter((m: any) => m.recordedAt?.slice(0, 10) >= weekStart).length;
-  const exerciseCount = allExercises.filter((e: any) => e.recordedAt?.slice(0, 10) >= weekStart).length;
+  const mealCount    = meals.filter((m: { recordedAt?: string }) => (m.recordedAt?.slice(0, 10) ?? '') >= weekStart).length;
+  const exerciseCount = exercises.filter((e: { recordedAt?: string }) => (e.recordedAt?.slice(0, 10) ?? '') >= weekStart).length;
   const streakDays = streak?.currentDays ?? 0;
 
   return (
