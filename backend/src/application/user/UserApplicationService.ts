@@ -3,6 +3,8 @@ import { IGoalRepository } from '../../domain/user/IGoalRepository';
 import { IStreakRepository } from '../../domain/user/IStreakRepository';
 import { IBadgeRepository } from '../../domain/badge/IBadgeRepository';
 import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
+import { IMealRepository } from '../../domain/meal/IMealRepository';
+import { IBodyLogRepository } from '../../domain/body-log/IBodyLogRepository';
 import { UpdateProfileInput, isPremium } from '../../domain/user/User';
 import { Goal } from '../../domain/user/Goal';
 import { emptyStreak } from '../../domain/user/Streak';
@@ -17,6 +19,8 @@ export class UserApplicationService {
     private readonly streakRepo: IStreakRepository,
     private readonly badgeRepo: IBadgeRepository,
     private readonly avatarRepo: IAvatarRepository,
+    private readonly mealRepo: IMealRepository,
+    private readonly bodyLogRepo: IBodyLogRepository,
   ) {}
 
   async getProfile(userId: UserId): Promise<Result<unknown>> {
@@ -67,16 +71,25 @@ export class UserApplicationService {
   }
 
   async getProgress(userId: UserId): Promise<Result<unknown>> {
-    const streak = await this.streakRepo.getStreak(userId);
+    const [streak, mealCount, exerciseCount] = await Promise.all([
+      this.streakRepo.getStreak(userId),
+      this.mealRepo.count(userId),
+      this.bodyLogRepo.countExercise(userId),
+    ]);
     return ok({
       streakDays:        streak?.currentDays   ?? 0,
       longestStreakDays: streak?.longestDays    ?? 0,
+      mealCount,
+      exerciseCount,
     });
   }
 
+  // 論理削除: 全ユーザーデータに TTL 30日をセット（DynamoDB が自動消去）
   async deleteAccount(userId: UserId): Promise<Result<{ message: string }>> {
-    await this.avatarRepo.delete(userId);
-    await this.userRepo.deleteAccount(userId);
+    await Promise.all([
+      this.avatarRepo.delete(userId),    // avatar は S3 バイナリなので即時削除
+      this.userRepo.deleteAccount(userId), // DynamoDB 内の全アイテムを論理削除
+    ]);
     return ok({ message: 'account deleted' });
   }
 

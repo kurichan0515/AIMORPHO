@@ -68,14 +68,28 @@ export default function BadgesScreen() {
 
   const earnedSet = new Set((earned || []).map((b: any) => b.badgeId as string));
 
-  // ロックバッジの進捗計算（型ごとに現在値を返す）
+  // ロックバッジの進捗計算
   const getProgress = (reward: RewardDef): { current: number; total: number } | null => {
     if (earnedSet.has(reward.id)) return null;
-    const streakDays = streak?.currentDays ?? 0;
+    const streakDays   = streak?.currentDays ?? 0;
+    const mealCount    = progress?.mealCount    ?? 0;
+    const exerciseCount = progress?.exerciseCount ?? 0;
+
     if (reward.category === 'streak') {
       const thresholds: Record<string, number> = { streak_3: 3, streak_7: 7, streak_14: 14, streak_30: 30, streak_60: 60, streak_100: 100 };
       const total = thresholds[reward.id];
       return total ? { current: Math.min(streakDays, total), total } : null;
+    }
+    if (reward.category === 'log') {
+      const logThresholds: Record<string, { current: number; total: number }> = {
+        meal_first:     { current: Math.min(mealCount, 1),     total: 1  },
+        meal_10:        { current: Math.min(mealCount, 10),    total: 10 },
+        meal_50:        { current: Math.min(mealCount, 50),    total: 50 },
+        exercise_first: { current: Math.min(exerciseCount, 1), total: 1  },
+        exercise_10:    { current: Math.min(exerciseCount, 10),total: 10 },
+        exercise_50:    { current: Math.min(exerciseCount, 50),total: 50 },
+      };
+      return logThresholds[reward.id] ?? null;
     }
     return null;
   };

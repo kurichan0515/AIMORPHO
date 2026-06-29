@@ -163,7 +163,7 @@ export default function ExerciseLogScreen() {
         Alert.alert('運動記録を削除', `「${item.exerciseName}」を削除しますか？`, [
           { text: 'キャンセル', style: 'cancel' },
           { text: '削除', style: 'destructive', onPress: async () => {
-            try { await deleteExerciseLog(item.recordedAt); refetch(); }
+            try { await deleteExerciseLog(item.recordedAt); qc.resetQueries({ queryKey: ['exerciseHistory'] }); }
             catch { Alert.alert('エラー', '削除に失敗しました'); }
           }},
         ]);
