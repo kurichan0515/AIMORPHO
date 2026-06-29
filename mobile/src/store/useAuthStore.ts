@@ -5,6 +5,7 @@ import {
   login as apiLogin, logout as apiLogout,
   recoverAccount as apiRecover,
 } from '../api/auth';
+import { getMyGroups } from '../api/social';
 import { fetchAvatar } from '../api/avatar';
 import { useAvatarStore } from './useAvatarStore';
 import { getDeviceId, regenerateDeviceId } from '../utils/deviceId';
@@ -107,6 +108,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       [ONBOARDING_KEY, 'true'],
     ]);
     set({ userId: data.userId, isAnonymous: false, onboardingCompleted: true });
+
+    // グループメンバーシップを復元
+    try {
+      const groups = await getMyGroups();
+      if (Array.isArray(groups) && groups.length > 0) {
+        await AsyncStorage.setItem('myGroupId', groups[0].groupId);
+      }
+    } catch {}
+
     const avatar = await fetchAvatar().catch(() => null);
     if (avatar) {
       useAvatarStore.getState().setAvatarImages(avatar.avatarImages, avatar.regenerateCount);
