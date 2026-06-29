@@ -65,7 +65,34 @@ export class AuthApplicationService {
     if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
       return err('Invalid credentials', 401);
     }
-    if (user.deleted) return err('Invalid credentials', 401);
+    if (user.deleted) {
+      // 削除から30日以内なら復活可能を通知
+      const deletedAt = user.deletedAt ? new Date(user.deletedAt) : null;
+      const RECOVERY_MS = 30 * 24 * 60 * 60 * 1000;
+      if (deletedAt && Date.now() - deletedAt.getTime() < RECOVERY_MS) {
+        const expiresAt = new Date(deletedAt.getTime() + RECOVERY_MS).toISOString();
+        return err(JSON.stringify({ code: 'ACCOUNT_RECOVERABLE', expiresAt }), 409);
+      }
+      return err('Invalid credentials', 401);
+    }
+    const tokens = await signTokens(user.userId);
+    return ok({ ...tokens, userId: user.userId, isAnonymous: false });
+  }
+
+  async recoverAccount(email: string, password: string): Promise<Result<AuthTokens>> {
+    const user = await this.userRepo.findByEmail(email);
+    if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
+      return err('Invalid credentials', 401);
+    }
+    if (!user.deleted) return err('Account is not deleted', 400);
+
+    const deletedAt = user.deletedAt ? new Date(user.deletedAt) : null;
+    const RECOVERY_MS = 30 * 24 * 60 * 60 * 1000;
+    if (!deletedAt || Date.now() - deletedAt.getTime() >= RECOVERY_MS) {
+      return err('Recovery period has expired', 410);
+    }
+
+    await this.userRepo.restoreAccount(user.userId);
     const tokens = await signTokens(user.userId);
     return ok({ ...tokens, userId: user.userId, isAnonymous: false });
   }

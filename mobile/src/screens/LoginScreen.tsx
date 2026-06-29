@@ -8,7 +8,7 @@ import { colors } from '../theme/colors';
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
   const qc = useQueryClient();
-  const { loginAndRestore } = useAuthStore();
+  const { loginAndRestore, recoverAndRestore } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,7 +24,39 @@ export default function LoginScreen() {
       await loginAndRestore(email.trim(), password);
       qc.clear();
       navigation.navigate('Main');
-    } catch {
+    } catch (e: any) {
+      // 削除済みアカウントで復活期間内
+      if (e?.response?.status === 409) {
+        try {
+          const body = JSON.parse(e.response?.data?.message ?? '{}');
+          if (body.code === 'ACCOUNT_RECOVERABLE') {
+            const expiresDate = new Date(body.expiresAt).toLocaleDateString('ja-JP');
+            Alert.alert(
+              'アカウントが削除済みです',
+              `このアカウントは削除されましたが、${expiresDate}まで復活できます。\n\nデータを復活させますか？`,
+              [
+                { text: 'キャンセル', style: 'cancel' },
+                {
+                  text: '復活させる',
+                  onPress: async () => {
+                    setLoading(true);
+                    try {
+                      await recoverAndRestore(email.trim(), password);
+                      qc.clear();
+                      navigation.navigate('Main');
+                    } catch {
+                      setError('復活に失敗しました。もう一度お試しください。');
+                    } finally {
+                      setLoading(false);
+                    }
+                  },
+                },
+              ]
+            );
+            return;
+          }
+        } catch {}
+      }
       setError('メールまたはパスワードが正しくありません');
     } finally {
       setLoading(false);

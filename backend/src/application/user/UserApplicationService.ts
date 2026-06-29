@@ -84,12 +84,11 @@ export class UserApplicationService {
     });
   }
 
-  // 論理削除: 全ユーザーデータに TTL 30日をセット（DynamoDB が自動消去）
+  // 論理削除: 全 DynamoDB アイテムに TTL 30日をセット（自動消去）
+  // S3アバター画像は復活期間中（30日）に復帰できるよう保持。復活期限後の S3 掃除は
+  // S3 ライフサイクルルール or 別バッチで実施すること。
   async deleteAccount(userId: UserId): Promise<Result<{ message: string }>> {
-    await Promise.all([
-      this.avatarRepo.delete(userId),    // avatar は S3 バイナリなので即時削除
-      this.userRepo.deleteAccount(userId), // DynamoDB 内の全アイテムを論理削除
-    ]);
+    await this.userRepo.deleteAccount(userId);
     return ok({ message: 'account deleted' });
   }
 
