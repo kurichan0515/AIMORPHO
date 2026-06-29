@@ -1,4 +1,4 @@
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IBodyLogRepository } from '../../domain/body-log/IBodyLogRepository';
 import { WeightLog } from '../../domain/body-log/WeightLog';
@@ -69,6 +69,20 @@ export class BodyLogRepository implements IBodyLogRepository {
       Select: 'COUNT',
     }));
     return r.Count ?? 0;
+  }
+
+  async deleteWeight(userId: UserId, recordedAt: DateString): Promise<void> {
+    await db.send(new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: `WEIGHT#${recordedAt}` },
+    }));
+  }
+
+  async deleteExercise(userId: UserId, recordedAt: DateString): Promise<void> {
+    await db.send(new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: `EXERCISE#${recordedAt}` },
+    }));
   }
 
   async getRecentExercise(userId: UserId, since: DateString): Promise<ExerciseLog[]> {

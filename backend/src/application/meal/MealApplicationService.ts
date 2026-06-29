@@ -146,6 +146,12 @@ export class MealApplicationService {
     return ok({ ...input, recordedAt: now, newBadges, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
   }
 
+  async deleteMeal(userId: UserId, recordedAt: string): Promise<Result<unknown>> {
+    if (!recordedAt) return err('recordedAt required', 400);
+    await this.mealRepo.delete(userId, recordedAt);
+    return ok({ deleted: true });
+  }
+
   async getMealHistory(userId: UserId, from: string, to: string, limit: number, cursor?: string): Promise<Result<unknown>> {
     const { items, nextCursor } = await this.mealRepo.getHistory(userId, from || '1970', to || '9999', limit, cursor);
     return ok({ items, nextCursor });

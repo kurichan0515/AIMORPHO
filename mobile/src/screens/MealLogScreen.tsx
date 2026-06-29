@@ -4,7 +4,7 @@ import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { Vibration } from 'react-native';
-import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHistory } from '../api/logs';
+import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHistory, deleteMealLog } from '../api/logs';
 import { getAiUsage } from '../api/ai';
 import api from '../api/client';
 import { colors } from '../theme/colors';
@@ -410,7 +410,7 @@ export default function MealLogScreen() {
         <Text style={styles.sectionTitle}>日別摂取カロリー</Text>
         <DailyKcalChart items={displayHistory} isMock={isMock} />
 
-        <Text style={styles.sectionTitle}>最近の食事記録</Text>
+        <Text style={styles.sectionTitle}>最近の食事記録 <Text style={{ fontSize: 11, color: colors.text.muted }}>（長押しで削除）</Text></Text>
         <TextInput
           style={styles.searchInput}
           placeholder="料理名で検索..."
@@ -423,7 +423,22 @@ export default function MealLogScreen() {
         {displayHistory.filter((item: any) =>
           !searchQuery || (item.menuName ?? '').toLowerCase().includes(searchQuery.toLowerCase())
         ).map((item: any) => (
-          <TouchableOpacity key={item.SK} style={styles.historyItem} onPress={() => fillFromHistory(item)}>
+          <TouchableOpacity
+            key={item.SK}
+            style={styles.historyItem}
+            onPress={() => fillFromHistory(item)}
+            onLongPress={() => {
+              if (isMock) return;
+              Alert.alert('食事記録を削除', `「${item.menuName}」を削除しますか？`, [
+                { text: 'キャンセル', style: 'cancel' },
+                { text: '削除', style: 'destructive', onPress: async () => {
+                  try { await deleteMealLog(item.recordedAt); refetch(); }
+                  catch { Alert.alert('エラー', '削除に失敗しました'); }
+                }},
+              ]);
+            }}
+            delayLongPress={500}
+          >
             <View style={styles.historyLeft}>
               <Text style={styles.historyName}>{item.menuName || '未解析'}</Text>
               {item.recordedAt && (

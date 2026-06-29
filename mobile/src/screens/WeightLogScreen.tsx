@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList, Vibration } from 'react-native';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { recordWeight, getWeightHistory } from '../api/logs';
+import { recordWeight, getWeightHistory, deleteWeightLog } from '../api/logs';
 import { colors } from '../theme/colors';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import Toast from '../components/Toast';
@@ -190,8 +190,27 @@ export default function WeightLogScreen() {
   const latest = history?.[0];
   const chartData = [...(history || [])].reverse();
 
+  const handleDeleteWeight = useCallback((item: any) => {
+    Alert.alert('体重記録を削除', `${item.recordedAt?.slice(0, 10)} の記録を削除しますか？`, [
+      { text: 'キャンセル', style: 'cancel' },
+      { text: '削除', style: 'destructive', onPress: async () => {
+        try {
+          await deleteWeightLog(item.recordedAt);
+          refetch();
+        } catch {
+          Alert.alert('エラー', '削除に失敗しました');
+        }
+      }},
+    ]);
+  }, [refetch]);
+
   const renderHistoryItem = useCallback(({ item }: { item: any }) => (
-    <View style={styles.historyItem}>
+    <TouchableOpacity
+      style={styles.historyItem}
+      onLongPress={() => handleDeleteWeight(item)}
+      delayLongPress={500}
+      accessibilityLabel={`${item.recordedAt?.slice(0, 10)} ${item.weightKg}kg 長押しで削除`}
+    >
       <Text style={styles.historyDate}>{item.recordedAt?.slice(0, 10)}</Text>
       <View style={styles.historyValues}>
         <Text style={styles.historyWeight}>{item.weightKg} kg</Text>
@@ -199,8 +218,8 @@ export default function WeightLogScreen() {
           <Text style={styles.historyBodyFat}>体脂肪率 {item.bodyFatPct}%</Text>
         )}
       </View>
-    </View>
-  ), []);
+    </TouchableOpacity>
+  ), [handleDeleteWeight]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>

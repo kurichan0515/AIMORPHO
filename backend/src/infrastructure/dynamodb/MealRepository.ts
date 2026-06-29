@@ -1,4 +1,4 @@
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { db, TABLE_NAME } from './client';
 import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { MealLog } from '../../domain/meal/MealLog';
@@ -55,6 +55,13 @@ export class MealRepository implements IMealRepository {
       Select: 'COUNT',
     }));
     return r.Count ?? 0;
+  }
+
+  async delete(userId: UserId, recordedAt: DateString): Promise<void> {
+    await db.send(new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: `MEAL#${recordedAt}` },
+    }));
   }
 
   async getRecent(userId: UserId, since: DateString): Promise<MealLog[]> {

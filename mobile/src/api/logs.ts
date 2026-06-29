@@ -39,6 +39,12 @@ export const recordExercise = (body: {
 export const getExerciseHistory = (params?: { from?: string; to?: string; limit?: number; cursor?: string }): Promise<HistoryPage<any>> =>
   api.get('/logs/exercise', { params }).then(r => r.data);
 
+export const deleteWeightLog  = (recordedAt: string) => api.delete('/logs/weight',   { params: { at: recordedAt } }).then(r => r.data);
+export const deleteExerciseLog = (recordedAt: string) => api.delete('/logs/exercise', { params: { at: recordedAt } }).then(r => r.data);
+export const deleteMealLog     = (recordedAt: string) => api.delete('/logs/meal',     { params: { at: recordedAt } }).then(r => r.data);
+
+export const getUserProgress = () => api.get('/users/me/progress').then(r => r.data);
+
 export const uploadImageToS3 = async (uploadUrl: string, imageUri: string): Promise<void> => {
   const res = await fetch(imageUri);
   const blob = await res.blob();
