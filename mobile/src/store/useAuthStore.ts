@@ -92,6 +92,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       [ONBOARDING_KEY, 'true'],
     ]);
     set({ userId: data.userId, isAnonymous: false, onboardingCompleted: true });
+
+    // 別デバイスでのログイン時にグループメンバーシップを復元
+    try {
+      const groups = await getMyGroups();
+      if (Array.isArray(groups) && groups.length > 0) {
+        await AsyncStorage.setItem('myGroupId', groups[0].groupId);
+      }
+    } catch {}
+
     const avatar = await fetchAvatar();
     if (avatar) {
       useAvatarStore.getState().setAvatarImages(avatar.avatarImages, avatar.regenerateCount);
