@@ -70,11 +70,13 @@ export default function HomeScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: todayMeals } = useQuery({
-    queryKey: ['mealHistory'],
-    queryFn: () => getMealHistory({ limit: 30 }),
+  // ['mealHistory'] は useInfiniteQuery と競合するため専用 key を使用
+  const { data: todayMealsPage } = useQuery({
+    queryKey: ['todayMeals'],
+    queryFn: () => getMealHistory({ limit: 50 }),
     staleTime: 1000 * 60 * 2,
   });
+  const todayMeals = todayMealsPage?.items;
 
   const { data: aiUsage, refetch: refetchUsage } = useQuery({
     queryKey: ['aiUsage'],
@@ -97,7 +99,7 @@ export default function HomeScreen() {
       qc.invalidateQueries({ queryKey: ['streak'] }),
       qc.invalidateQueries({ queryKey: ['dailyAdvice'] }),
       qc.invalidateQueries({ queryKey: ['aiUsage'] }),
-      qc.invalidateQueries({ queryKey: ['mealHistory'] }),
+      qc.invalidateQueries({ queryKey: ['todayMeals'] }),
     ]);
     setRefreshing(false);
   }, [qc]);
