@@ -53,9 +53,9 @@ export class BodyLogApplicationService {
     return ok({ weightKg, bodyFatPct, recordedAt: now, newBadges, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
   }
 
-  async getWeightHistory(userId: UserId, from: string, to: string, limit: number): Promise<Result<unknown>> {
-    const items = await this.bodyLogRepo.getWeightHistory(userId, from || '1970', to || '9999', limit);
-    return ok(items);
+  async getWeightHistory(userId: UserId, from: string, to: string, limit: number, cursor?: string): Promise<Result<unknown>> {
+    const { items, nextCursor } = await this.bodyLogRepo.getWeightHistory(userId, from || '1970', to || '9999', limit, cursor);
+    return ok({ items, nextCursor });
   }
 
   async recordExercise(userId: UserId, input: {
@@ -109,9 +109,9 @@ export class BodyLogApplicationService {
     return ok({ ...log, newBadges, recovered, streakInfo: { currentDays: newStreak.currentDays, streakMilestone, returnedAfterBreak } });
   }
 
-  async getExerciseHistory(userId: UserId, from: string, to: string, limit: number): Promise<Result<unknown>> {
-    const items = await this.bodyLogRepo.getExerciseHistory(userId, from || '1970', to || '9999', limit);
-    return ok(items);
+  async getExerciseHistory(userId: UserId, from: string, to: string, limit: number, cursor?: string): Promise<Result<unknown>> {
+    const { items, nextCursor } = await this.bodyLogRepo.getExerciseHistory(userId, from || '1970', to || '9999', limit, cursor);
+    return ok({ items, nextCursor });
   }
 
   async #checkAndHandleGoalAchievement(userId: UserId, currentWeight: number): Promise<void> {

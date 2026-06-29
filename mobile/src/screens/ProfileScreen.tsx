@@ -1,5 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, RefreshControl } from 'react-native';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const APP_VERSION: string = require('../../package.json').version;
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
@@ -55,6 +57,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const qc = useQueryClient();
   const { purchase } = useIAP();
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -81,6 +84,25 @@ export default function ProfileScreen() {
   const goalValue = goal?.mode ? GOAL_MODE_LABELS[goal.mode] : undefined;
   const earnedCount = badges?.length ?? 0;
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['profile'] }),
+      qc.invalidateQueries({ queryKey: ['streak'] }),
+      qc.invalidateQueries({ queryKey: ['badges'] }),
+    ]);
+    setRefreshing(false);
+  }, [qc]);
+
+  const toggleNotifications = async (enabled: boolean) => {
+    try {
+      await api.put('/users/me', { notificationsEnabled: enabled });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    } catch {
+      Alert.alert('エラー', '設定の保存に失敗しました');
+    }
+  };
+
   const handleDeleteAccount = async () => {
     try {
       await api.delete('/users/me');
@@ -96,6 +118,7 @@ export default function ProfileScreen() {
       style={s.root}
       contentContainerStyle={s.container}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.neon.blue} />}
     >
       <View style={s.heroCard}>
         <View style={s.heroLeft}>
@@ -141,6 +164,32 @@ export default function ProfileScreen() {
           value={earnedCount > 0 ? `${earnedCount}件取得済み` : '未獲得'}
           onPress={() => navigation.navigate('Rewards')}
         />
+      </View>
+
+      <Section label="通知・アプリ" sub="SETTINGS" />
+      <View style={s.card}>
+        <View style={m.row}>
+          <Text style={m.label}>リマインダー通知</Text>
+          <View style={s.toggleGroup}>
+            <TouchableOpacity
+              style={[s.toggleBtn, profile?.notificationsEnabled !== false && s.toggleBtnOn]}
+              onPress={() => toggleNotifications(true)}
+            >
+              <Text style={[s.toggleText, profile?.notificationsEnabled !== false && s.toggleTextOn]}>ON</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.toggleBtn, profile?.notificationsEnabled === false && s.toggleBtnOff]}
+              onPress={() => toggleNotifications(false)}
+            >
+              <Text style={[s.toggleText, profile?.notificationsEnabled === false && s.toggleTextOff]}>OFF</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={s.divider} />
+        <View style={[m.row, { paddingVertical: 14 }]}>
+          <Text style={m.label}>バージョン</Text>
+          <Text style={m.value}>v{APP_VERSION}</Text>
+        </View>
       </View>
 
       <Section label="アカウント" sub="ACCOUNT" />
@@ -192,6 +241,11 @@ export default function ProfileScreen() {
             )}
           </View>
           <Text style={s.accountEmail}>{profile?.email ?? ''}</Text>
+          {profile?.subscriptionTier === 'premium' && profile?.subscriptionExpiresAt && (
+            <Text style={s.expiryText}>
+              プレミアム期限: {new Date(profile.subscriptionExpiresAt).toLocaleDateString('ja-JP')}
+            </Text>
+          )}
           {profile?.subscriptionTier !== 'premium' && (
             <TouchableOpacity
               style={[s.primaryBtn, { margin: 16, marginTop: 12, backgroundColor: colors.neon.yellow }]}
@@ -273,6 +327,14 @@ const s = StyleSheet.create({
   dangerBtn:      { paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center', marginBottom: 8 },
   dangerBtnText:  { color: colors.danger, fontSize: 13 },
 
+  toggleGroup:    { flexDirection: 'row', gap: 6 },
+  toggleBtn:      { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.bg.cardAlt },
+  toggleBtnOn:    { backgroundColor: 'rgba(61,202,110,0.2)', borderColor: colors.neon.green },
+  toggleBtnOff:   { backgroundColor: 'rgba(255,69,69,0.1)', borderColor: colors.danger },
+  toggleText:     { fontSize: 13, fontWeight: '600', color: colors.text.muted },
+  toggleTextOn:   { color: colors.neon.green },
+  toggleTextOff:  { color: colors.danger },
+  expiryText:     { fontSize: 12, color: colors.text.muted, paddingHorizontal: 16, marginBottom: 4 },
   accountTagRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, paddingBottom: 8 },
   accountTag:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1 },
   accountTagText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },

@@ -46,7 +46,7 @@ export class AiApplicationService {
     ]);
     if (!user) return err('User not found', 404);
 
-    const [recentWeights, recentMeals, recentExercises] = await Promise.all([
+    const [{ items: recentWeights }, recentMeals, recentExercises] = await Promise.all([
       this.bodyLogRepo.getWeightHistory(userId, '2020', '9999', 7),
       this.mealRepo.getRecent(userId, new Date(Date.now() - 9 * 86400000).toISOString()),
       this.bodyLogRepo.getRecentExercise(userId, new Date(Date.now() - 9 * 86400000).toISOString()),

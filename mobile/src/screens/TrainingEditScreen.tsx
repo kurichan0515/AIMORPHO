@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
@@ -69,12 +69,14 @@ export default function TrainingEditScreen() {
             <Text style={s.listLabel}>ジムに通っている</Text>
             <Text style={s.listSub}>ウェイトメニューを運動提案に含めます</Text>
           </View>
-          <Switch
-            value={hasGym}
-            onValueChange={setHasGym}
-            trackColor={{ false: colors.bg.cardAlt, true: colors.neon.blue }}
-            thumbColor={colors.text.primary}
-          />
+          <View style={s.toggleGroup}>
+            <TouchableOpacity style={[s.toggleBtn, hasGym && s.toggleBtnOn]} onPress={() => setHasGym(true)}>
+              <Text style={[s.toggleText, hasGym && s.toggleTextOn]}>あり</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.toggleBtn, !hasGym && s.toggleBtnOff]} onPress={() => setHasGym(false)}>
+              <Text style={[s.toggleText, !hasGym && s.toggleTextOff]}>なし</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -105,6 +107,14 @@ const s = StyleSheet.create({
   listSub:         { fontSize: 11, color: colors.text.muted, marginTop: 2 },
   checkDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.neon.blue },
 
-  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  toggleGroup:  { flexDirection: 'row', gap: 6 },
+  toggleBtn:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.bg.cardAlt },
+  toggleBtnOn:  { backgroundColor: 'rgba(47,200,255,0.2)', borderColor: colors.neon.blue },
+  toggleBtnOff: { backgroundColor: 'rgba(106,122,150,0.12)', borderColor: colors.border.subtle },
+  toggleText:   { fontSize: 13, fontWeight: '600', color: colors.text.muted },
+  toggleTextOn: { color: colors.neon.blue },
+  toggleTextOff:{ color: colors.text.secondary },
+
+  primaryBtn:     { backgroundColor: colors.neon.blue, borderRadius: 12, paddingVertical: 15, alignItems: 'center', minHeight: 50, justifyContent: 'center' },
   primaryBtnText: { color: colors.bg.primary, fontSize: 15, fontWeight: 'bold' },
 });

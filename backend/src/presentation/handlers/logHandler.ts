@@ -16,7 +16,7 @@ export const handler = async (event: LambdaEvent) => {
       return fromResult(await bodyLogSvc.recordWeight(userId as never, weightKg, bodyFatPct), 201);
     }
     if (path === '/logs/weight'   && httpMethod === 'GET') {
-      return fromResult(await bodyLogSvc.getWeightHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
+      return fromResult(await bodyLogSvc.getWeightHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10), qs.cursor));
     }
     if (path === '/logs/exercise' && httpMethod === 'POST') {
       const { exerciseName, durationMin, kcalBurned, completed, muscleGroups } = body as {
@@ -26,7 +26,7 @@ export const handler = async (event: LambdaEvent) => {
       return fromResult(await bodyLogSvc.recordExercise(userId as never, { exerciseName, durationMin, kcalBurned, completed, muscleGroups }), 201);
     }
     if (path === '/logs/exercise' && httpMethod === 'GET') {
-      return fromResult(await bodyLogSvc.getExerciseHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
+      return fromResult(await bodyLogSvc.getExerciseHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10), qs.cursor));
     }
     return error('Not found', 404);
   } catch (err) {

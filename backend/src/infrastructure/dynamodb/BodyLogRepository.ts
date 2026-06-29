@@ -19,15 +19,17 @@ export class BodyLogRepository implements IBodyLogRepository {
     }));
   }
 
-  async getWeightHistory(userId: UserId, from: DateString, to: DateString, limit: number): Promise<WeightLog[]> {
+  async getWeightHistory(userId: UserId, from: DateString, to: DateString, limit: number, cursor?: string): Promise<{ items: WeightLog[]; nextCursor: string | null }> {
     const r = await db.send(new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'PK = :pk AND SK BETWEEN :from AND :to',
       ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':from': `WEIGHT#${from}`, ':to': `WEIGHT#${to}` },
       ScanIndexForward: false,
       Limit: limit,
+      ExclusiveStartKey: cursor ? JSON.parse(Buffer.from(cursor, 'base64').toString()) : undefined,
     }));
-    return (r.Items ?? []).map(i => ({ userId, weightKg: i.weightKg, bodyFatPct: i.bodyFatPct, recordedAt: i.recordedAt }));
+    const nextCursor = r.LastEvaluatedKey ? Buffer.from(JSON.stringify(r.LastEvaluatedKey)).toString('base64') : null;
+    return { items: (r.Items ?? []).map(i => ({ userId, weightKg: i.weightKg, bodyFatPct: i.bodyFatPct, recordedAt: i.recordedAt })), nextCursor };
   }
 
   async saveExercise(log: ExerciseLog): Promise<void> {
@@ -46,15 +48,17 @@ export class BodyLogRepository implements IBodyLogRepository {
     }));
   }
 
-  async getExerciseHistory(userId: UserId, from: DateString, to: DateString, limit: number): Promise<ExerciseLog[]> {
+  async getExerciseHistory(userId: UserId, from: DateString, to: DateString, limit: number, cursor?: string): Promise<{ items: ExerciseLog[]; nextCursor: string | null }> {
     const r = await db.send(new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'PK = :pk AND SK BETWEEN :from AND :to',
       ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':from': `EXERCISE#${from}`, ':to': `EXERCISE#${to}` },
       ScanIndexForward: false,
       Limit: limit,
+      ExclusiveStartKey: cursor ? JSON.parse(Buffer.from(cursor, 'base64').toString()) : undefined,
     }));
-    return (r.Items ?? []).map(i => this.#mapExercise(userId, i));
+    const nextCursor = r.LastEvaluatedKey ? Buffer.from(JSON.stringify(r.LastEvaluatedKey)).toString('base64') : null;
+    return { items: (r.Items ?? []).map(i => this.#mapExercise(userId, i)), nextCursor };
   }
 
   async countExercise(userId: UserId): Promise<number> {

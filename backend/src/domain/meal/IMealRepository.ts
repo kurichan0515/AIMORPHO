@@ -3,7 +3,7 @@ import { MealLog } from './MealLog';
 
 export interface IMealRepository {
   save(log: MealLog): Promise<void>;
-  getHistory(userId: UserId, from: DateString, to: DateString, limit: number): Promise<MealLog[]>;
+  getHistory(userId: UserId, from: DateString, to: DateString, limit: number, cursor?: string): Promise<{ items: MealLog[]; nextCursor: string | null }>;
   count(userId: UserId): Promise<number>;
   countMonth(userId: UserId, yearMonth: string): Promise<number>;
   getRecent(userId: UserId, since: DateString): Promise<MealLog[]>;

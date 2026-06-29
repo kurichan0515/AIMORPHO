@@ -34,7 +34,7 @@ export const handler = async (event: LambdaEvent) => {
       }), 201);
     }
     if (path === '/logs/meal'            && httpMethod === 'GET')  {
-      return fromResult(await mealSvc.getMealHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10)));
+      return fromResult(await mealSvc.getMealHistory(userId as never, qs.from ?? '', qs.to ?? '', parseInt(qs.limit ?? '30', 10), qs.cursor));
     }
     return error('Not found', 404);
   } catch (err) {

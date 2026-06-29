@@ -11,6 +11,7 @@ export class NotificationApplicationService {
     const users = await this.userRepo.listFcmTokensWithStreak();
 
     const targets = users.filter(u => {
+      if (u.notificationsEnabled === false) return false; // 通知オフ
       if (!u.lastLoggedAt) return true; // 一度も記録していない
       return toJSTDate(u.lastLoggedAt) !== todayJST;
     });

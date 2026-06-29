@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -7,6 +7,8 @@ import { useAvatarStore } from '../store/useAvatarStore';
 import { getDefaultAvatars, DEFAULT_AVATAR_LABELS } from '../utils/defaultAvatars';
 import AvatarConsentModal from '../components/AvatarConsentModal';
 import PremiumGateModal from '../components/PremiumGateModal';
+import Toast from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import { colors } from '../theme/colors';
 import api from '../api/client';
 
@@ -16,6 +18,7 @@ export default function AvatarSetupScreen() {
   const { avatarImages, bodyState, regenerateCount, gender, setAvatarImages } = useAvatarStore();
   const [consentVisible, setConsentVisible] = React.useState(false);
   const [premiumVisible, setPremiumVisible] = React.useState(false);
+  const { toastVisible, toastMessage, showToast, hideToast } = useToast();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -27,7 +30,7 @@ export default function AvatarSetupScreen() {
     mutationFn: (uri: string) => generateAvatar(uri),
     onSuccess: (data) => {
       setAvatarImages(data.avatarImages, regenerateCount + 1);
-      Alert.alert('完成！', 'アバターを再生成しました 🎉');
+      showToast('アバターを生成しました！');
     },
     onError: (e: any) => {
       if (e.response?.status === 403) { setPremiumVisible(true); return; }
@@ -56,6 +59,7 @@ export default function AvatarSetupScreen() {
   const defaultAvatars = !hasGenerated ? getDefaultAvatars(gender) : null;
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView style={styles.container}>
       <Text style={styles.title}>アバター</Text>
 
@@ -139,6 +143,7 @@ export default function AvatarSetupScreen() {
         onCancel={() => setConsentVisible(false)}
       />
 
+      <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
       <PremiumGateModal
         visible={premiumVisible}
         onClose={() => setPremiumVisible(false)}
@@ -146,6 +151,7 @@ export default function AvatarSetupScreen() {
         description={`無料プランでのアバター生成は${MAX_GENERATES}回までです。プレミアムプランで何度でも再生成できます。`}
       />
     </ScrollView>
+    </View>
   );
 }
 

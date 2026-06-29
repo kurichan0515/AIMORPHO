@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Polyline, Circle } from 'react-native-svg';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { recordExercise, getExerciseHistory } from '../api/logs';
 import { colors } from '../theme/colors';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
@@ -98,10 +98,20 @@ export default function ExerciseLogScreen() {
     });
   }, []);
 
-  const { data: history, refetch } = useQuery({
+  const {
+    data: historyPages,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['exerciseHistory'],
-    queryFn: () => getExerciseHistory({ limit: 20 }),
+    queryFn: ({ pageParam }) => getExerciseHistory({ limit: 20, cursor: pageParam as string | undefined }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
   });
+
+  const history = historyPages?.pages.flatMap(p => p.items) ?? [];
 
   const isMock = !history?.length;
   const kcalChartData = [...(history || [])].filter((item: any) => item.kcalBurned).reverse();
@@ -254,6 +264,17 @@ export default function ExerciseLogScreen() {
           </View>
         }
         contentContainerStyle={styles.container}
+        ListFooterComponent={
+          hasNextPage ? (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              <Text style={styles.loadMoreText}>{isFetchingNextPage ? '読み込み中...' : 'もっと見る'}</Text>
+            </TouchableOpacity>
+          ) : null
+        }
       />
 
       <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
@@ -314,4 +335,6 @@ const styles = StyleSheet.create({
   completedBadgeText:      { fontSize: 12, fontWeight: 'bold' },
   completedBadgeTextDone:  { color: colors.neon.green },
   completedBadgeTextSkip:  { color: colors.neon.orange },
+  loadMoreBtn:             { marginTop: 8, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border.subtle, alignItems: 'center' },
+  loadMoreText:            { fontSize: 14, color: colors.neon.blue, fontWeight: '600' },
 });
