@@ -203,6 +203,8 @@ export default function MealLogScreen() {
       setEditingKcal(false);
       refetch();
       qc.invalidateQueries({ queryKey: ['streak'] });
+      qc.invalidateQueries({ queryKey: ['todayMeals'] });
+      qc.invalidateQueries({ queryKey: ['mealHistoryWeekly'] });
       Vibration.vibrate(40);
       streak.trigger(data);
       showToast('食事を記録しました');
@@ -229,6 +231,8 @@ export default function MealLogScreen() {
       setManual({ menu_name: '', kcal: '', protein_g: '', fat_g: '', carb_g: '' });
       refetch();
       qc.invalidateQueries({ queryKey: ['streak'] });
+      qc.invalidateQueries({ queryKey: ['todayMeals'] });
+      qc.invalidateQueries({ queryKey: ['mealHistoryWeekly'] });
       Vibration.vibrate(40);
       streak.trigger(data);
       showToast('食事を記録しました');
@@ -432,7 +436,12 @@ export default function MealLogScreen() {
               Alert.alert('食事記録を削除', `「${item.menuName}」を削除しますか？`, [
                 { text: 'キャンセル', style: 'cancel' },
                 { text: '削除', style: 'destructive', onPress: async () => {
-                  try { await deleteMealLog(item.recordedAt); qc.resetQueries({ queryKey: ['mealHistory'] }); }
+                  try {
+                    await deleteMealLog(item.recordedAt);
+                    qc.resetQueries({ queryKey: ['mealHistory'] });
+                    qc.invalidateQueries({ queryKey: ['todayMeals'] });
+                    qc.invalidateQueries({ queryKey: ['mealHistoryWeekly'] });
+                  }
                   catch { Alert.alert('エラー', '削除に失敗しました'); }
                 }},
               ]);
