@@ -47,16 +47,6 @@ export class MealRepository implements IMealRepository {
     return r.Count ?? 0;
   }
 
-  async countMonth(userId: UserId, yearMonth: string): Promise<number> {
-    const r = await db.send(new QueryCommand({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: 'PK = :pk AND SK BETWEEN :from AND :to',
-      ExpressionAttributeValues: { ':pk': `USER#${userId}`, ':from': `MEAL#${yearMonth}`, ':to': `MEAL#${yearMonth}-99` },
-      Select: 'COUNT',
-    }));
-    return r.Count ?? 0;
-  }
-
   async delete(userId: UserId, recordedAt: DateString): Promise<void> {
     await db.send(new DeleteCommand({
       TableName: TABLE_NAME,

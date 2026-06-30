@@ -16,6 +16,8 @@ import { BellIcon, WorkoutsIcon, CheckCircleIcon, BulbIcon, MealIcon, SparkleIco
 import { useIAP } from '../hooks/useIAP';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
+import AdBanner from '../components/AdBanner';
+import { isLimitError } from '../utils/apiErrors';
 
 // 今日の日付文字列（コンポーネント外で一度だけ計算）
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -30,7 +32,6 @@ const calcTDEE = (profile: any): number => {
   return Math.round(bmr * (m[profile.lifestyle] ?? 1.375));
 };
 
-const isLimitError = (err: any) => err?.response?.status === 429;
 const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
 
 export default function HomeScreen() {
@@ -399,6 +400,7 @@ export default function HomeScreen() {
                   本日残り {Math.max(0, aiUsage.limits.mealSuggestion - aiUsage.usage.mealSuggestion)}/{aiUsage.limits.mealSuggestion} 回
                 </Text>
               )}
+              {mealSuggestionMutation.isPending && <AdBanner />}
               <TouchableOpacity
                 style={[styles.primaryBtn, styles.fullWidthBtn, mealSuggestionMutation.isPending && styles.primaryBtnDisabled]}
                 onPress={() => mealSuggestionMutation.mutate()}
@@ -434,6 +436,7 @@ export default function HomeScreen() {
                   本日残り {Math.max(0, aiUsage.limits.exerciseSuggestion - aiUsage.usage.exerciseSuggestion)}/{aiUsage.limits.exerciseSuggestion} 回
                 </Text>
               )}
+              {exerciseSuggestionMutation.isPending && <AdBanner />}
               <TouchableOpacity
                 style={[styles.primaryBtn, styles.fullWidthBtn, (exerciseSuggestionMutation.isPending || profileLoading) && styles.primaryBtnDisabled]}
                 onPress={() => exerciseSuggestionMutation.mutate(goToGym)}

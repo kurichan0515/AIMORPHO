@@ -9,10 +9,12 @@ import { getAiUsage } from '../api/ai';
 import api from '../api/client';
 import { colors } from '../theme/colors';
 import PremiumGateModal from '../components/PremiumGateModal';
+import AdBanner from '../components/AdBanner';
 import Toast from '../components/Toast';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
 import { useToast } from '../hooks/useToast';
+import { isLimitError } from '../utils/apiErrors';
 
 interface MealResult {
   menu_name: string;
@@ -33,8 +35,6 @@ interface ManualForm {
   fat_g: string;
   carb_g: string;
 }
-
-const isLimitError = (err: any) => err?.response?.status === 429;
 
 const MOCK_MEAL_HISTORY = [
   { SK: 'mock-1', menuName: '鶏むね肉とブロッコリー', kcal: 380, proteinG: 45, fatG: 8,  carbG: 12, recordedAt: '2026-06-16T08:00:00' },
@@ -209,11 +209,7 @@ export default function MealLogScreen() {
       streak.trigger(data);
       showToast('食事を記録しました');
     },
-    onError: (err: any) => {
-      if (isLimitError(err)) {
-        showPremiumModal('月次記録の上限に達しました', '今月の食事記録件数の上限です。プレミアムプランで無制限に記録できます。');
-        return;
-      }
+    onError: () => {
       Alert.alert('エラー', '登録に失敗しました');
     },
   });
@@ -237,11 +233,7 @@ export default function MealLogScreen() {
       streak.trigger(data);
       showToast('食事を記録しました');
     },
-    onError: (err: any) => {
-      if (isLimitError(err)) {
-        showPremiumModal('月次記録の上限に達しました', '今月の食事記録件数の上限です。プレミアムプランで無制限に記録できます。');
-        return;
-      }
+    onError: () => {
       Alert.alert('エラー', '保存に失敗しました');
     },
   });
@@ -298,7 +290,12 @@ export default function MealLogScreen() {
           )}
         </TouchableOpacity>
 
-        {analyzeMutation.isPending && <ActivityIndicator style={{ marginVertical: 16 }} color={colors.neon.blue} />}
+        {analyzeMutation.isPending && (
+          <View style={styles.adLoadingContainer}>
+            <AdBanner />
+            <ActivityIndicator style={styles.adLoadingSpinner} color={colors.neon.blue} />
+          </View>
+        )}
 
         {result && !result.error && (
           <View style={styles.resultCard}>
@@ -563,4 +560,6 @@ const styles = StyleSheet.create({
   mockTag:              { fontSize: 9, color: colors.text.muted, borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   loadMoreBtn:          { marginTop: 4, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border.subtle, alignItems: 'center' },
   loadMoreText:         { fontSize: 14, color: colors.neon.blue, fontWeight: '600' },
+  adLoadingContainer:   { marginVertical: 8 },
+  adLoadingSpinner:     { marginVertical: 8 },
 });

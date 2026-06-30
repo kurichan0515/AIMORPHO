@@ -4,7 +4,7 @@ import { IUsageRepository } from '../../domain/usage/IUsageRepository';
 import { IStreakRepository } from '../../domain/user/IStreakRepository';
 import { IStorageService } from '../../domain/storage/IStorageService';
 import { IAiService } from '../../domain/ai/IAiService';
-import { FREE_DAILY_LIMITS, FREE_MONTHLY_MEAL_LIMIT } from '../../domain/usage/UsageLimits';
+import { FREE_DAILY_LIMITS } from '../../domain/usage/UsageLimits';
 import { isPremium } from '../../domain/user/User';
 import { MealLog } from '../../domain/meal/MealLog';
 import { BadgeService } from '../../domain/badge/BadgeService';
@@ -54,11 +54,6 @@ export class MealApplicationService {
   }): Promise<Result<unknown>> {
     const user = await this.userRepo.findById(userId);
     if (!user) return err('User not found', 404);
-    if (!isPremium(user)) {
-      const yearMonth = toJSTDate(new Date().toISOString()).slice(0, 7);
-      const monthCount = await this.mealRepo.countMonth(userId, yearMonth);
-      if (monthCount >= FREE_MONTHLY_MEAL_LIMIT) return err('Monthly meal limit reached', 429);
-    }
 
     const now = new Date().toISOString();
     const log: MealLog = {
@@ -103,11 +98,6 @@ export class MealApplicationService {
   }): Promise<Result<unknown>> {
     const user = await this.userRepo.findById(userId);
     if (!user) return err('User not found', 404);
-    if (!isPremium(user)) {
-      const yearMonth = toJSTDate(new Date().toISOString()).slice(0, 7);
-      const monthCount = await this.mealRepo.countMonth(userId, yearMonth);
-      if (monthCount >= FREE_MONTHLY_MEAL_LIMIT) return err('Monthly meal limit reached', 429);
-    }
 
     const now = new Date().toISOString();
     const log: MealLog = {
