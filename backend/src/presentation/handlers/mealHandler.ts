@@ -18,9 +18,9 @@ export const handler = async (event: LambdaEvent) => {
       return fromResult(await mealSvc.saveMealManual(userId as never, { menuName: menuName ?? '手動入力', kcal, proteinG: proteinG ?? 0, fatG: fatG ?? 0, carbG: carbG ?? 0 }), 201);
     }
     if (path === '/logs/meal'            && httpMethod === 'POST') {
-      const { s3Key } = body as { s3Key?: string };
+      const { s3Key, rewardToken } = body as { s3Key?: string; rewardToken?: string };
       if (!s3Key) return error('s3Key required');
-      return fromResult(await mealSvc.analyzeMeal(userId as never, s3Key));
+      return fromResult(await mealSvc.analyzeMeal(userId as never, s3Key, rewardToken));
     }
     if (path === '/logs/meal/confirm'    && httpMethod === 'POST') {
       const { s3Key, menuName, kcal, proteinG, fatG, carbG, confidence, geminiRaw } = body as {

@@ -39,8 +39,8 @@ export const getWeightHistory = (params?: { from?: string; to?: string; limit?: 
 export const getMealUploadUrl = () =>
   api.get('/logs/meal/upload-url').then(r => r.data as { uploadUrl: string; s3Key: string });
 
-export const analyzeMeal = (s3Key: string) =>
-  api.post('/logs/meal', { s3Key }).then(r => r.data);
+export const analyzeMeal = (s3Key: string, rewardToken?: string) =>
+  api.post('/logs/meal', { s3Key, rewardToken }).then(r => r.data);
 
 export const confirmMeal = (input: {
   s3Key: string;

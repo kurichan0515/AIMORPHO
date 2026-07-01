@@ -8,13 +8,13 @@ import { getMealUploadUrl, analyzeMeal, confirmMeal, uploadImageToS3, getMealHis
 import { getAiUsage } from '../api/ai';
 import api from '../api/client';
 import { colors } from '../theme/colors';
-import PremiumGateModal from '../components/PremiumGateModal';
-import AdBanner from '../components/AdBanner';
 import Toast from '../components/Toast';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
 import { useToast } from '../hooks/useToast';
-import { isLimitError } from '../utils/apiErrors';
+import { useRewardedAd } from '../hooks/useRewardedAd';
+import AdBanner from '../components/AdBanner';
+import { generateErrorCode } from '../utils/errorCode';
 
 interface MealResult {
   menu_name: string;
@@ -125,13 +125,11 @@ export default function MealLogScreen() {
   const [manual, setManual] = useState<ManualForm>({ menu_name: '', kcal: '', protein_g: '', fat_g: '', carb_g: '' });
   const [editingKcal, setEditingKcal] = useState(false);
   const [editedKcal, setEditedKcal] = useState('');
-  const [premiumModal, setPremiumModal] = useState<{ visible: boolean; title: string; desc: string }>({ visible: false, title: '', desc: '' });
   const { toastVisible, toastMessage, showToast, hideToast } = useToast();
   const streak = useStreakCelebration();
   const qc = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-
-  const showPremiumModal = (title: string, desc: string) => setPremiumModal({ visible: true, title, desc });
+  const rewardedAd = useRewardedAd();
 
   const {
     data: historyPages,
@@ -147,19 +145,18 @@ export default function MealLogScreen() {
   });
 
   const history = historyPages?.pages.flatMap(p => p.items) ?? [];
-  const { data: aiUsage, refetch: refetchUsage } = useQuery({ queryKey: ['aiUsage'], queryFn: getAiUsage, staleTime: 0 });
+  const { data: aiUsage } = useQuery({ queryKey: ['aiUsage'], queryFn: getAiUsage, staleTime: 1000 * 60 * 5 });
 
   const displayHistory: any[] = history?.length ? history : MOCK_MEAL_HISTORY;
   const isMock = !history?.length;
 
   const analyzeMutation = useMutation({
-    mutationFn: async (uri: string) => {
+    mutationFn: async ({ uri, rewardToken }: { uri: string; rewardToken?: string }) => {
       const { uploadUrl, s3Key } = await getMealUploadUrl();
       await uploadImageToS3(uploadUrl, uri);
-      return analyzeMeal(s3Key);
+      return analyzeMeal(s3Key, rewardToken);
     },
     onSuccess: (data) => {
-      refetchUsage();
       if (data.error === 'analysis_failed') {
         setManualMode(true);
         Alert.alert('解析失敗', '手動で入力してください');
@@ -172,14 +169,10 @@ export default function MealLogScreen() {
         }
       }
     },
-    onError: (err) => {
-      if (isLimitError(err)) {
-        setImageUri(null);
-        showPremiumModal('AI解析の上限に達しました', '本日のAI食事解析回数の上限です。プレミアムプランで無制限にご利用いただけます。');
-        return;
-      }
+    onError: () => {
+      const code = generateErrorCode();
       setManualMode(true);
-      Alert.alert('エラー', '解析に失敗しました。手動で入力してください。');
+      Alert.alert('エラー', `解析に失敗しました。手動で入力してください。\nエラーコード: ${code}`);
     },
   });
 
@@ -253,7 +246,18 @@ export default function MealLogScreen() {
     setImageUri(uri);
     setManualMode(false);
     setResult(null);
-    analyzeMutation.mutate(uri);
+
+    if (!aiUsage) {
+      setImageUri(null);
+      Alert.alert('準備中', 'データを読み込んでいます。少し待ってから再度お試しください。');
+      return;
+    }
+    if (aiUsage.premium) { analyzeMutation.mutate({ uri }); return; }
+    const started = rewardedAd.show(() => analyzeMutation.mutate({ uri, rewardToken: rewardedAd.getToken() ?? undefined }));
+    if (!started) {
+      setImageUri(null);
+      Alert.alert('広告準備中', '広告の準備中です。少し待ってからもう一度お試しください。');
+    }
   };
 
   const fillFromHistory = (item: any) => {
@@ -273,10 +277,8 @@ export default function MealLogScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg.primary }}>
       <ScrollView ref={scrollRef} style={styles.container}>
-        {aiUsage && !aiUsage.premium && aiUsage.limits && (
-          <Text style={styles.usageBadge}>
-            AI解析 本日残り {Math.max(0, aiUsage.limits.mealAnalysis - aiUsage.usage.mealAnalysis)}/{aiUsage.limits.mealAnalysis} 回
-          </Text>
+        {aiUsage && !aiUsage.premium && (
+          <Text style={styles.usageBadge}>📺 AI解析は広告視聴で利用できます</Text>
         )}
         <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
           {imageUri ? (
@@ -290,12 +292,7 @@ export default function MealLogScreen() {
           )}
         </TouchableOpacity>
 
-        {analyzeMutation.isPending && (
-          <View style={styles.adLoadingContainer}>
-            <AdBanner />
-            <ActivityIndicator style={styles.adLoadingSpinner} color={colors.neon.blue} />
-          </View>
-        )}
+        {analyzeMutation.isPending && <ActivityIndicator style={styles.adLoadingSpinner} color={colors.neon.blue} />}
 
         {result && !result.error && (
           <View style={styles.resultCard}>
@@ -411,6 +408,8 @@ export default function MealLogScreen() {
         <Text style={styles.sectionTitle}>日別摂取カロリー</Text>
         <DailyKcalChart items={displayHistory} isMock={isMock} />
 
+        <AdBanner />
+
         <Text style={styles.sectionTitle}>最近の食事記録 <Text style={{ fontSize: 11, color: colors.text.muted }}>（長押しで削除）</Text></Text>
         <TextInput
           style={styles.searchInput}
@@ -470,13 +469,6 @@ export default function MealLogScreen() {
           </TouchableOpacity>
         )}
         <View style={{ height: 24 }} />
-
-        <PremiumGateModal
-          visible={premiumModal.visible}
-          onClose={() => setPremiumModal(p => ({ ...p, visible: false }))}
-          title={premiumModal.title}
-          description={premiumModal.desc}
-        />
       </ScrollView>
 
       <Toast visible={toastVisible} message={toastMessage} onHide={hideToast} />
@@ -560,6 +552,5 @@ const styles = StyleSheet.create({
   mockTag:              { fontSize: 9, color: colors.text.muted, borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   loadMoreBtn:          { marginTop: 4, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border.subtle, alignItems: 'center' },
   loadMoreText:         { fontSize: 14, color: colors.neon.blue, fontWeight: '600' },
-  adLoadingContainer:   { marginVertical: 8 },
-  adLoadingSpinner:     { marginVertical: 8 },
+  adLoadingSpinner:     { marginVertical: 16 },
 });

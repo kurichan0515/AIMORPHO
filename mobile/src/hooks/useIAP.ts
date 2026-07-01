@@ -38,6 +38,7 @@ export function useIAP() {
 
         await finishTransaction({ purchase, isConsumable: false });
         qc.invalidateQueries({ queryKey: ['profile'] });
+        qc.invalidateQueries({ queryKey: ['aiUsage'] });
         Alert.alert('プレミアム登録完了！', 'プレミアムプランをご利用いただけます。');
       } catch {
         Alert.alert('エラー', '購入の確認に失敗しました。サポートにお問い合わせください。');
@@ -61,6 +62,7 @@ export function useIAP() {
       try {
         await verifyApplePurchase('dev-mock-transaction');
         qc.invalidateQueries({ queryKey: ['profile'] });
+        qc.invalidateQueries({ queryKey: ['aiUsage'] });
         Alert.alert('プレミアム登録完了！(開発モック)', 'プレミアムプランをご利用いただけます。');
       } catch {
         Alert.alert('エラー', 'バックエンドへの接続に失敗しました。ローカルサーバーが起動しているか確認してください。');

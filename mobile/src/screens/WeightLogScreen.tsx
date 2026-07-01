@@ -8,6 +8,7 @@ import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import Toast from '../components/Toast';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
 import { useToast } from '../hooks/useToast';
+import { useDailyInterstitialAd } from '../hooks/useDailyInterstitialAd';
 
 const CHART_WIDTH = 320;
 const CHART_HEIGHT = 160;
@@ -130,6 +131,7 @@ export default function WeightLogScreen() {
   const [bodyFatInput, setBodyFatInput] = useState('');
   const { toastVisible, toastMessage, showToast, hideToast } = useToast();
   const streak = useStreakCelebration();
+  const { trigger: triggerInterstitial } = useDailyInterstitialAd();
   const qc = useQueryClient();
 
   const {
@@ -156,6 +158,7 @@ export default function WeightLogScreen() {
       qc.invalidateQueries({ queryKey: ['streak'] });
       Vibration.vibrate(40);
       streak.trigger(data);
+      triggerInterstitial();
 
       const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
       if (nonStreakBadges.length) {

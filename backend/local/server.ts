@@ -68,9 +68,14 @@ app.get ('/logs/meal',            auth, wrap(fnMeal as Parameters<typeof wrap>[0
 app.post('/logs/exercise',        auth, wrap(fnLog as Parameters<typeof wrap>[0]));
 app.get ('/logs/exercise',        auth, wrap(fnLog as Parameters<typeof wrap>[0]));
 
-app.get ('/ai/daily-advice',  auth, wrap(fnAi as Parameters<typeof wrap>[0]));
-app.post('/ai/penalty-event', auth, wrap(fnAi as Parameters<typeof wrap>[0]));
-app.get ('/ai/goal-message',  auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.get ('/ai/usage',              auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.post('/ai/reward-token',       auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.get ('/ai/daily-advice',       auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.post('/ai/penalty-event',      auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.get ('/ai/goal-message',       auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.post('/ai/meal-suggestion',    auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.post('/ai/exercise-suggestion',auth, wrap(fnAi as Parameters<typeof wrap>[0]));
+app.get ('/webhooks/admob-reward',      wrap(fnAi as Parameters<typeof wrap>[0])); // AdMob SSV: no auth
 
 app.post  ('/groups',                auth, wrap(fnSocial as Parameters<typeof wrap>[0]));
 app.post  ('/groups/join',           auth, wrap(fnSocial as Parameters<typeof wrap>[0]));
@@ -80,6 +85,10 @@ app.get   ('/groups/:group_id/feed', auth, wrap(fnSocial as Parameters<typeof wr
 app.delete('/groups/:group_id/leave',auth, wrap(fnSocial as Parameters<typeof wrap>[0]));
 
 app.delete('/users/me', auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.post('/inquiries',  auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+
+app.get ('/admin/inquiries',        wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.patch('/admin/inquiries/status', wrap(fnAdmin as Parameters<typeof wrap>[0]));
 
 app.post('/admin/notifications/send',  wrap(fnAdmin as Parameters<typeof wrap>[0]));
 app.get ('/admin/users',               wrap(fnAdmin as Parameters<typeof wrap>[0]));

@@ -20,8 +20,7 @@ export default function PremiumGateModal({ visible, onClose, title, description,
           <Text style={s.title}>{title}</Text>
           <Text style={s.desc}>{description}</Text>
           <View style={s.features}>
-            <FeatureRow text="AI解析・提案 無制限" />
-            <FeatureRow text="食事記録 無制限" />
+            <FeatureRow text="AI食事解析・提案 広告なしで使い放題" />
             <FeatureRow text="AIコーチ 全口調スタイル" />
             <FeatureRow text="アバター再生成 無制限" />
             <FeatureRow text="複数グループ参加" />

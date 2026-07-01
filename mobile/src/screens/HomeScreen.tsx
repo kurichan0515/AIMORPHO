@@ -16,8 +16,9 @@ import { BellIcon, WorkoutsIcon, CheckCircleIcon, BulbIcon, MealIcon, SparkleIco
 import { useIAP } from '../hooks/useIAP';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
 import { useStreakCelebration } from '../hooks/useStreakCelebration';
+import { useRewardedAd } from '../hooks/useRewardedAd';
 import AdBanner from '../components/AdBanner';
-import { isLimitError } from '../utils/apiErrors';
+import { generateErrorCode } from '../utils/errorCode';
 
 // 今日の日付文字列（コンポーネント外で一度だけ計算）
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -32,7 +33,7 @@ const calcTDEE = (profile: any): number => {
   return Math.round(bmr * (m[profile.lifestyle] ?? 1.375));
 };
 
-const LIMIT_MESSAGE = '本日のAI提案利用回数の上限に達しました。サブスクに登録すると無制限でご利用いただけます。';
+const AD_NOT_READY_MESSAGE = '広告の準備中です。少し待ってからもう一度お試しください。';
 
 export default function HomeScreen() {
   const { bodyState, avatarImages, gender } = useAvatarStore();
@@ -51,6 +52,7 @@ export default function HomeScreen() {
   const [recordedExercises, setRecordedExercises] = useState<string[]>([]);
   const [goToGym, setGoToGym] = useState(false);
   const streak = useStreakCelebration();
+  const rewardedAd = useRewardedAd();
 
   const interrogationAnim = useRef(new Animated.Value(0)).current;
 
@@ -79,10 +81,10 @@ export default function HomeScreen() {
   });
   const todayMeals = todayMealsPage?.items;
 
-  const { data: aiUsage, refetch: refetchUsage } = useQuery({
+  const { data: aiUsage } = useQuery({
     queryKey: ['aiUsage'],
     queryFn: getAiUsage,
-    staleTime: 0,
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -147,30 +149,45 @@ export default function HomeScreen() {
   });
 
   const mealSuggestionMutation = useMutation({
-    mutationFn: getMealSuggestion,
+    mutationFn: (rewardToken?: string) => getMealSuggestion(rewardToken),
     onSuccess: (data) => {
-      refetchUsage();
       if (data.error === 'parse_failed') { Alert.alert('エラー', '食事提案の生成に失敗しました。もう一度お試しください。'); return; }
       setMealSuggestion(data); setShowMealModal(true);
     },
-    onError: (err) => {
-      if (isLimitError(err)) { Alert.alert('利用回数の上限', LIMIT_MESSAGE); return; }
-      Alert.alert('エラー', '食事提案の取得に失敗しました');
+    onError: () => {
+      const code = generateErrorCode();
+      Alert.alert('エラー', `食事提案の取得に失敗しました。\nエラーコード: ${code}`);
     },
   });
 
   const exerciseSuggestionMutation = useMutation({
-    mutationFn: (goGym: boolean) => getExerciseSuggestion(goGym),
+    mutationFn: ({ goGym, rewardToken }: { goGym: boolean; rewardToken?: string }) =>
+      getExerciseSuggestion(goGym, rewardToken),
     onSuccess: (data) => {
-      refetchUsage();
       if (data.error === 'parse_failed') { Alert.alert('エラー', 'トレーニング提案の生成に失敗しました。もう一度お試しください。'); return; }
       setExerciseSuggestion(data); setShowExerciseModal(true); setRecordedExercises([]);
     },
-    onError: (err) => {
-      if (isLimitError(err)) { Alert.alert('利用回数の上限', LIMIT_MESSAGE); return; }
-      Alert.alert('エラー', 'トレーニング提案の取得に失敗しました');
+    onError: () => {
+      const code = generateErrorCode();
+      Alert.alert('エラー', `トレーニング提案の取得に失敗しました。\nエラーコード: ${code}`);
     },
   });
+
+  const requestMealSuggestion = () => {
+    if (!aiUsage) { Alert.alert('準備中', 'データを読み込んでいます。少し待ってから再度お試しください。'); return; }
+    if (aiUsage.premium) { mealSuggestionMutation.mutate(undefined); return; }
+    const started = rewardedAd.show(() => mealSuggestionMutation.mutate(rewardedAd.getToken() ?? undefined));
+    if (!started) { Alert.alert('広告準備中', AD_NOT_READY_MESSAGE); }
+  };
+
+  const requestExerciseSuggestion = () => {
+    if (!aiUsage) { Alert.alert('準備中', 'データを読み込んでいます。少し待ってから再度お試しください。'); return; }
+    if (aiUsage.premium) { exerciseSuggestionMutation.mutate({ goGym: goToGym }); return; }
+    const started = rewardedAd.show(() =>
+      exerciseSuggestionMutation.mutate({ goGym: goToGym, rewardToken: rewardedAd.getToken() ?? undefined })
+    );
+    if (!started) { Alert.alert('広告準備中', AD_NOT_READY_MESSAGE); }
+  };
 
   const recordExerciseMutation = useMutation({
     mutationFn: (item: ExerciseSuggestionItem) => recordExercise({
@@ -350,8 +367,8 @@ export default function HomeScreen() {
             <View style={styles.premiumBannerInner}>
               <Text style={styles.premiumBannerIcon}>👑</Text>
               <View style={styles.premiumBannerText}>
-                <Text style={styles.premiumBannerTitle}>プレミアムで制限なし</Text>
-                <Text style={styles.premiumBannerSub}>AI提案・食事解析が無制限に</Text>
+                <Text style={styles.premiumBannerTitle}>プレミアムでAI機能が広告なし</Text>
+                <Text style={styles.premiumBannerSub}>AI提案・食事解析がリワード広告なしですぐ使える</Text>
               </View>
               <Text style={styles.premiumBannerArrow}>›</Text>
             </View>
@@ -395,15 +412,12 @@ export default function HomeScreen() {
                 <CheckCircleIcon color={colors.neon.green} size={18} />
                 <Text style={styles.infoRowText}>食事分析: {advice?.meal_advice}</Text>
               </View>
-              {aiUsage && !aiUsage.premium && aiUsage.limits && (
-                <Text style={styles.usageBadge}>
-                  本日残り {Math.max(0, aiUsage.limits.mealSuggestion - aiUsage.usage.mealSuggestion)}/{aiUsage.limits.mealSuggestion} 回
-                </Text>
+              {aiUsage && !aiUsage.premium && (
+                <Text style={styles.usageBadge}>📺 広告視聴で利用できます</Text>
               )}
-              {mealSuggestionMutation.isPending && <AdBanner />}
               <TouchableOpacity
                 style={[styles.primaryBtn, styles.fullWidthBtn, mealSuggestionMutation.isPending && styles.primaryBtnDisabled]}
-                onPress={() => mealSuggestionMutation.mutate()}
+                onPress={requestMealSuggestion}
                 disabled={mealSuggestionMutation.isPending}
                 accessibilityLabel="食事提案をもらう"
                 accessibilityRole="button"
@@ -431,15 +445,12 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.checkboxLabel}>ジムに行く</Text>
               </TouchableOpacity>
-              {aiUsage && !aiUsage.premium && aiUsage.limits && (
-                <Text style={styles.usageBadge}>
-                  本日残り {Math.max(0, aiUsage.limits.exerciseSuggestion - aiUsage.usage.exerciseSuggestion)}/{aiUsage.limits.exerciseSuggestion} 回
-                </Text>
+              {aiUsage && !aiUsage.premium && (
+                <Text style={styles.usageBadge}>📺 広告視聴で利用できます</Text>
               )}
-              {exerciseSuggestionMutation.isPending && <AdBanner />}
               <TouchableOpacity
                 style={[styles.primaryBtn, styles.fullWidthBtn, (exerciseSuggestionMutation.isPending || profileLoading) && styles.primaryBtnDisabled]}
-                onPress={() => exerciseSuggestionMutation.mutate(goToGym)}
+                onPress={requestExerciseSuggestion}
                 disabled={exerciseSuggestionMutation.isPending || profileLoading}
                 accessibilityLabel="トレーニング提案をもらう"
                 accessibilityRole="button"
@@ -461,6 +472,8 @@ export default function HomeScreen() {
             ※ 本アドバイスはAIによる参考情報です。医療・診断行為ではありません。
           </Text>
         </View>
+
+        <AdBanner />
 
         {/* 食事提案モーダル */}
         <Modal visible={showMealModal} animationType="slide" presentationStyle="pageSheet">

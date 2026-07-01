@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { IUserRepository } from '../../domain/user/IUserRepository';
 import { IGoalRepository } from '../../domain/user/IGoalRepository';
 import { IStreakRepository } from '../../domain/user/IStreakRepository';
@@ -5,14 +6,16 @@ import { IAvatarRepository } from '../../domain/avatar/IAvatarRepository';
 import { IBodyLogRepository } from '../../domain/body-log/IBodyLogRepository';
 import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { IAdviceRepository } from '../../domain/advice/IAdviceRepository';
-import { IUsageRepository } from '../../domain/usage/IUsageRepository';
+import { IRewardTokenRepository } from '../../domain/reward/IRewardTokenRepository';
 import { IAiService } from '../../domain/ai/IAiService';
-import { FREE_DAILY_LIMITS, FREE_AI_TONES } from '../../domain/usage/UsageLimits';
+import { FREE_AI_TONES } from '../../domain/usage/UsageLimits';
 import { isPremium } from '../../domain/user/User';
 import { calcUserTDEE } from '../../domain/health/RecoveryService';
 import { Result, ok, err } from '../../domain/shared/Result';
 import { UserId } from '../../domain/shared/types';
 import { toJSTDate } from '../../infrastructure/dynamodb/client';
+
+const REWARD_TOKEN_TTL_SEC = 4 * 60 * 60; // 4時間
 
 const GOAL_ACHIEVE_MESSAGES: Record<string, (kg: number) => string> = {
   diet:     kg => `おめでとう！目標体重${kg}kgへの減量を達成しました！`,
@@ -29,9 +32,32 @@ export class AiApplicationService {
     private readonly bodyLogRepo: IBodyLogRepository,
     private readonly mealRepo: IMealRepository,
     private readonly adviceRepo: IAdviceRepository,
-    private readonly usageRepo: IUsageRepository,
+    private readonly rewardTokenRepo: IRewardTokenRepository,
     private readonly aiSvc: IAiService,
   ) {}
+
+  async issueRewardToken(userId: UserId): Promise<Result<{ tokenId: string }>> {
+    const tokenId = randomUUID();
+    const now = new Date().toISOString();
+    // 非本番環境ではテスト広告へのSSVコールバックが来ないため、発行時点で検証済みにする
+    const verified = process.env.NODE_ENV !== 'production';
+    await this.rewardTokenRepo.create({
+      tokenId,
+      userId,
+      createdAt: now,
+      ttl: Math.floor(Date.now() / 1000) + REWARD_TOKEN_TTL_SEC,
+      verified,
+    });
+    return ok({ tokenId });
+  }
+
+  async verifyRewardToken(userId: UserId, tokenId: string): Promise<boolean> {
+    return this.rewardTokenRepo.findAndDeleteVerified(tokenId, userId);
+  }
+
+  async handleAdmobSsvCallback(tokenId: string): Promise<void> {
+    await this.rewardTokenRepo.markVerified(tokenId);
+  }
 
   async getDailyAdvice(userId: UserId): Promise<Result<unknown>> {
     const todayJST = toJSTDate(new Date().toISOString());
@@ -109,19 +135,20 @@ export class AiApplicationService {
     return ok({ event: 'interrogation', missedDays, question });
   }
 
-  async getMealSuggestion(userId: UserId): Promise<Result<unknown>> {
+  async getMealSuggestion(userId: UserId, rewardToken?: string): Promise<Result<unknown>> {
     const [user, goal] = await Promise.all([
       this.userRepo.findById(userId),
       this.goalRepo.getGoal(userId),
     ]);
     if (!user) return err('User not found', 404);
 
-    const todayJST = toJSTDate(new Date().toISOString());
     if (!isPremium(user)) {
-      const allowed = await this.usageRepo.tryIncrement(userId, todayJST, 'mealSuggestion', FREE_DAILY_LIMITS.mealSuggestion);
-      if (!allowed) return err('Daily usage limit reached', 429);
+      if (!rewardToken) { return err('Reward token required', 403); }
+      const valid = await this.verifyRewardToken(userId, rewardToken);
+      if (!valid) { return err('Invalid or unverified reward token', 403); }
     }
 
+    const todayJST = toJSTDate(new Date().toISOString());
     const since = new Date(Date.now() - 2 * 86400000).toISOString();
     const recentMeals = await this.mealRepo.getRecent(userId, since);
     const todayMeals = recentMeals.filter(m => toJSTDate(m.recordedAt) === todayJST);
@@ -144,7 +171,7 @@ export class AiApplicationService {
     return ok(result);
   }
 
-  async getExerciseSuggestion(userId: UserId, goToGym: boolean): Promise<Result<unknown>> {
+  async getExerciseSuggestion(userId: UserId, goToGym: boolean, rewardToken?: string): Promise<Result<unknown>> {
     const [user, goal] = await Promise.all([
       this.userRepo.findById(userId),
       this.goalRepo.getGoal(userId),
@@ -152,9 +179,9 @@ export class AiApplicationService {
     if (!user) return err('User not found', 404);
 
     if (!isPremium(user)) {
-      const todayJST = toJSTDate(new Date().toISOString());
-      const allowed = await this.usageRepo.tryIncrement(userId, todayJST, 'exerciseSuggestion', FREE_DAILY_LIMITS.exerciseSuggestion);
-      if (!allowed) return err('Daily usage limit reached', 429);
+      if (!rewardToken) { return err('Reward token required', 403); }
+      const valid = await this.verifyRewardToken(userId, rewardToken);
+      if (!valid) { return err('Invalid or unverified reward token', 403); }
     }
 
     const oneWeekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
@@ -176,13 +203,9 @@ export class AiApplicationService {
   }
 
   async getAiUsage(userId: UserId): Promise<Result<unknown>> {
-    const todayJST = toJSTDate(new Date().toISOString());
-    const [user, usage] = await Promise.all([
-      this.userRepo.findById(userId),
-      this.usageRepo.getUsage(userId, todayJST),
-    ]);
+    const user = await this.userRepo.findById(userId);
     const premium = user ? isPremium(user) : false;
-    return ok({ premium, usage, limits: premium ? null : FREE_DAILY_LIMITS });
+    return ok({ premium });
   }
 
   async getGoalMessage(userId: UserId): Promise<Result<unknown>> {

@@ -169,6 +169,8 @@ export default function ProfileScreen() {
           value={earnedCount > 0 ? `${earnedCount}件取得済み` : '未獲得'}
           onPress={() => navigation.navigate('Rewards')}
         />
+        <View style={s.divider} />
+        <MenuRow label="お問い合わせ" onPress={() => navigation.navigate('Inquiry')} />
       </View>
 
       <Section label="通知・アプリ" sub="SETTINGS" />

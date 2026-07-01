@@ -1,5 +1,5 @@
 import { LambdaEvent, error, parseBody, ok } from '../http';
-import { userSvc, storageSvc } from '../container';
+import { userSvc, storageSvc, inquiryRepo } from '../container';
 import { sendPushNotification } from '../../infrastructure/fcm/FcmService';
 import { LegalRepository, LegalFile } from '../../infrastructure/dynamodb/LegalRepository';
 
@@ -80,6 +80,20 @@ export const handler = async (event: LambdaEvent) => {
       if (file !== 'terms' && file !== 'privacy') return error('file must be terms or privacy');
       if (!key) return error('key required');
       await legalRepo.activate(file, key);
+      return ok({ ok: true });
+    }
+
+    if (path === '/admin/inquiries' && httpMethod === 'GET') {
+      const qs = event.queryStringParameters ?? {};
+      const limit = Math.min(200, Math.max(1, parseInt(qs.limit ?? '50', 10) || 50));
+      const result = await inquiryRepo.list(limit, qs.cursor);
+      return ok(result);
+    }
+
+    if (path === '/admin/inquiries/status' && httpMethod === 'PATCH') {
+      const { inquiryId, status } = body as { inquiryId: string; status: string };
+      if (!inquiryId || !status) return error('inquiryId and status required');
+      await inquiryRepo.updateStatus(inquiryId, status as any);
       return ok({ ok: true });
     }
 

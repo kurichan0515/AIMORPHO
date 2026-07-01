@@ -12,6 +12,7 @@ import { useStreakCelebration } from '../hooks/useStreakCelebration';
 import { useToast } from '../hooks/useToast';
 import Toast from '../components/Toast';
 import StreakCelebrationModal from '../components/StreakCelebrationModal';
+import AdBanner from '../components/AdBanner';
 
 const PRESETS = [
   'ウォーキング', 'ジョギング', '筋トレ', 'サイクリング', 'ヨガ', '水泳', 'HIIT',
@@ -268,6 +269,8 @@ export default function ExerciseLogScreen() {
 
             <Text style={styles.sectionTitle}>消費カロリー推移</Text>
             <KcalChart data={kcalChartData} isMock={isMock} />
+
+            <AdBanner />
 
             <Text style={styles.sectionTitle}>履歴</Text>
             <TextInput

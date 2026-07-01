@@ -1,10 +1,9 @@
 import { IMealRepository } from '../../domain/meal/IMealRepository';
 import { IUserRepository } from '../../domain/user/IUserRepository';
-import { IUsageRepository } from '../../domain/usage/IUsageRepository';
 import { IStreakRepository } from '../../domain/user/IStreakRepository';
 import { IStorageService } from '../../domain/storage/IStorageService';
 import { IAiService } from '../../domain/ai/IAiService';
-import { FREE_DAILY_LIMITS } from '../../domain/usage/UsageLimits';
+import { IRewardTokenRepository } from '../../domain/reward/IRewardTokenRepository';
 import { isPremium } from '../../domain/user/User';
 import { MealLog } from '../../domain/meal/MealLog';
 import { BadgeService } from '../../domain/badge/BadgeService';
@@ -17,11 +16,11 @@ export class MealApplicationService {
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly mealRepo: IMealRepository,
-    private readonly usageRepo: IUsageRepository,
     private readonly storageSvc: IStorageService,
     private readonly aiSvc: IAiService,
     private readonly badgeSvc: BadgeService,
     private readonly streakRepo: IStreakRepository,
+    private readonly rewardTokenRepo: IRewardTokenRepository,
   ) {}
 
   async getMealUploadUrl(userId: UserId): Promise<Result<{ uploadUrl: string; s3Key: string }>> {
@@ -30,14 +29,14 @@ export class MealApplicationService {
     return ok({ uploadUrl, s3Key: key });
   }
 
-  async analyzeMeal(userId: UserId, s3Key: string): Promise<Result<unknown>> {
+  async analyzeMeal(userId: UserId, s3Key: string, rewardToken?: string): Promise<Result<unknown>> {
     const user = await this.userRepo.findById(userId);
     if (!user) return err('User not found', 404);
 
     if (!isPremium(user)) {
-      const todayJST = toJSTDate(new Date().toISOString());
-      const allowed = await this.usageRepo.tryIncrement(userId, todayJST, 'mealAnalysis', FREE_DAILY_LIMITS.mealAnalysis);
-      if (!allowed) return err('Daily usage limit reached', 429);
+      if (!rewardToken) { return err('Reward token required', 403); }
+      const valid = await this.rewardTokenRepo.findAndDeleteVerified(rewardToken, userId);
+      if (!valid) { return err('Invalid or unverified reward token', 403); }
     }
 
     const base64 = await this.storageSvc.getObjectBase64(s3Key);

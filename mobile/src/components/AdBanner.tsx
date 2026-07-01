@@ -1,7 +1,6 @@
 import React from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
-import { colors } from '../theme/colors';
 
 // Replace TEST_IDs with production ad unit IDs from AdMob console
 const ANDROID_AD_UNIT_ID = __DEV__
@@ -14,6 +13,7 @@ const IOS_AD_UNIT_ID = __DEV__
 
 const AD_UNIT_ID = Platform.OS === 'ios' ? IOS_AD_UNIT_ID : ANDROID_AD_UNIT_ID;
 
+// 非AI画面に常設するバナー広告。受動的に表示し続けることでimpressionを積み上げる。
 export default function AdBanner() {
   return (
     <View style={styles.container}>
@@ -29,9 +29,6 @@ export default function AdBanner() {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    backgroundColor: colors.bg.card,
-    borderRadius: 8,
     marginVertical: 8,
-    overflow: 'hidden',
   },
 });

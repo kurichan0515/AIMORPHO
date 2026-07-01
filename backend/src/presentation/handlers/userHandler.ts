@@ -1,5 +1,7 @@
-import { LambdaEvent, error, parseBody, getUserId, fromResult } from '../http';
-import { userSvc } from '../container';
+import { randomUUID } from 'crypto';
+import { LambdaEvent, error, parseBody, getUserId, fromResult, ok } from '../http';
+import { userSvc, inquiryRepo } from '../container';
+import { InquiryCategory } from '../../domain/inquiry/Inquiry';
 import { UpdateProfileInput } from '../../domain/user/User';
 import { GoalMode } from '../../domain/shared/types';
 
@@ -38,6 +40,31 @@ export const handler = async (event: LambdaEvent) => {
     if (path === '/users/me/streak'    && httpMethod === 'GET')    return fromResult(await userSvc.getStreak(userId as never));
     if (path === '/users/me/badges'    && httpMethod === 'GET')    return fromResult(await userSvc.getBadges(userId as never));
     if (path === '/users/me/progress'  && httpMethod === 'GET')    return fromResult(await userSvc.getProgress(userId as never));
+
+    if (path === '/inquiries' && httpMethod === 'POST') {
+      const { email, category, subject, body: bodyText, errorCode } = body as {
+        email?: string; category?: InquiryCategory; subject?: string; body?: string; errorCode?: string;
+      };
+      if (!email || !subject || !bodyText) return error('email, subject and body required');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return error('invalid email format');
+      if (subject.length > 200) return error('subject too long');
+      if (bodyText.length > 5000) return error('body too long');
+      const validCategories: InquiryCategory[] = ['bug', 'feature', 'other'];
+      if (category && !validCategories.includes(category)) return error('invalid category');
+      await inquiryRepo.save({
+        inquiryId: randomUUID(),
+        userId: userId as string,
+        email,
+        category: category ?? 'other',
+        subject,
+        body: bodyText,
+        errorCode: errorCode || undefined,
+        createdAt: new Date().toISOString(),
+        status: 'new',
+      });
+      return ok({ submitted: true });
+    }
+
     return error('Not found', 404);
   } catch (err) {
     console.error(err);

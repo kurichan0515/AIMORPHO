@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchCamera } from 'react-native-image-picker';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { generateAvatar } from '../api/avatar';
 import { useAvatarStore } from '../store/useAvatarStore';
@@ -48,10 +48,14 @@ export default function AvatarSetupScreen() {
 
   const handleConsentAgree = async () => {
     setConsentVisible(false);
-    const res = await launchImageLibrary({ mediaType: 'photo', quality: 0.9 });
-    const uri = res.assets?.[0]?.uri;
-    if (!uri) return;
-    mutation.mutate(uri);
+    try {
+      const res = await launchCamera({ mediaType: 'photo', quality: 0.9, cameraType: 'front', saveToPhotos: false });
+      const uri = res.assets?.[0]?.uri;
+      if (!uri) return;
+      mutation.mutate(uri);
+    } catch {
+      Alert.alert('エラー', 'カメラを起動できませんでした。設定でカメラへのアクセスを許可してください。');
+    }
   };
 
   const remaining = isPremium ? Infinity : Math.max(0, MAX_GENERATES - regenerateCount);
@@ -129,7 +133,7 @@ export default function AvatarSetupScreen() {
           ) : (
             <View>
               <Text style={styles.generateBtnText}>
-                📸 顔写真で{hasGenerated ? '再' : ''}生成{isPremium ? '' : `（残り${remaining}回）`}
+                📷 カメラで顔撮影・{hasGenerated ? '再' : ''}生成{isPremium ? '' : `（残り${remaining}回）`}
               </Text>
               <Text style={styles.generateBtnSub}>写真はGemini AIで処理・生成後に削除されます</Text>
             </View>

@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Alert,
   ActivityIndicator, ScrollView,
 } from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchCamera } from 'react-native-image-picker';
 import { useMutation } from '@tanstack/react-query';
 import { generateAvatar } from '../api/avatar';
 import { useAuthStore } from '../store/useAuthStore';
@@ -52,10 +52,14 @@ export default function OnboardingAvatarScreen() {
 
   const handleConsentAgree = async () => {
     setConsentVisible(false);
-    const res = await launchImageLibrary({ mediaType: 'photo', quality: 0.9 });
-    const uri = res.assets?.[0]?.uri;
-    if (!uri) return;
-    mutation.mutate(uri);
+    try {
+      const res = await launchCamera({ mediaType: 'photo', quality: 0.9, cameraType: 'front', saveToPhotos: false });
+      const uri = res.assets?.[0]?.uri;
+      if (!uri) return;
+      mutation.mutate(uri);
+    } catch {
+      showToast('カメラを起動できませんでした。設定でカメラへのアクセスを許可してください。');
+    }
   };
 
   const startWithDefault = async () => {
@@ -157,7 +161,7 @@ export default function OnboardingAvatarScreen() {
               <View style={styles.btnInner}>
                 <Text style={styles.aiBtnLabel}>AI</Text>
                 <View>
-                  <Text style={styles.aiBtnText}>顔写真でAIアバター生成</Text>
+                  <Text style={styles.aiBtnText}>カメラで顔撮影してアバター生成</Text>
                   <Text style={styles.aiBtnSub}>写真はGemini AIで処理・生成後に削除されます</Text>
                 </View>
               </View>

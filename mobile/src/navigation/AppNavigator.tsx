@@ -23,6 +23,8 @@ import BodyEditScreen from '../screens/BodyEditScreen';
 import TrainingEditScreen from '../screens/TrainingEditScreen';
 import AICoachEditScreen from '../screens/AICoachEditScreen';
 import GoalEditScreen from '../screens/GoalEditScreen';
+import InquiryScreen from '../screens/InquiryScreen';
+import { useDailyInterstitialAd } from '../hooks/useDailyInterstitialAd';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -33,6 +35,15 @@ const TAB_ICONS: Record<string, (props: { color: string; size?: number }) => Rea
 };
 
 function MainTabs() {
+  const { trigger: triggerInterstitial } = useDailyInterstitialAd();
+  // 2秒後のタイマー発火時点で最新のtrigger（aiUsage解決後）を呼べるようrefで保持
+  const triggerRef = React.useRef(triggerInterstitial);
+  triggerRef.current = triggerInterstitial;
+  React.useEffect(() => {
+    // アプリ起動トリガー: ロード猶予を少し置いてから試行
+    const timer = setTimeout(() => triggerRef.current(), 2000);
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -98,6 +109,7 @@ export default function AppNavigator() {
             <Stack.Screen name="GoalEdit"    component={GoalEditScreen}      options={{ headerShown: true, title: '目標設定' }} />
             <Stack.Screen name="Login"       component={LoginScreen}         options={{ headerShown: true, title: '既存アカウントでログイン' }} />
             <Stack.Screen name="Register"    component={RegisterScreen}      options={{ headerShown: true, title: 'アカウント登録' }} />
+            <Stack.Screen name="Inquiry"     component={InquiryScreen}       options={{ headerShown: true, title: 'お問い合わせ' }} />
           </>
         )}
       </Stack.Navigator>
