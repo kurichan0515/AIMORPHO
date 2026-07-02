@@ -162,7 +162,7 @@ export default function WeightLogScreen() {
 
       const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
       if (nonStreakBadges.length) {
-        Alert.alert('バッジ獲得！', nonStreakBadges.map((b: any) => b.name).join('、'));
+        Alert.alert('トロフィー獲得！', nonStreakBadges.map((b: any) => b.name).join('、'));
       }
       if (!data.streakInfo?.streakMilestone && !data.streakInfo?.returnedAfterBreak) {
         showToast('体重を記録しました');

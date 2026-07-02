@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { LambdaEvent, error, parseBody, getUserId, fromResult, ok } from '../http';
-import { userSvc, inquiryRepo } from '../container';
+import { userSvc, inquiryRepo, badgeRepo, userRepo } from '../container';
+import { buildTrophyStats } from '../../infrastructure/dynamodb/BadgeRepository';
 import { InquiryCategory } from '../../domain/inquiry/Inquiry';
 import { UpdateProfileInput } from '../../domain/user/User';
 import { GoalMode } from '../../domain/shared/types';
@@ -39,6 +40,14 @@ export const handler = async (event: LambdaEvent) => {
     if (path === '/users/me'           && httpMethod === 'DELETE') return fromResult(await userSvc.deleteAccount(userId as never));
     if (path === '/users/me/streak'    && httpMethod === 'GET')    return fromResult(await userSvc.getStreak(userId as never));
     if (path === '/users/me/badges'    && httpMethod === 'GET')    return fromResult(await userSvc.getBadges(userId as never));
+    if (path === '/badges/stats'       && httpMethod === 'GET') {
+      const [users, acquisitionStats] = await Promise.all([
+        userRepo.listAllUsers(),
+        badgeRepo.getAcquisitionStats(),
+      ]);
+      const totalUsers = users.filter(u => !u.deleted).length;
+      return ok({ totalUsers, stats: buildTrophyStats(acquisitionStats, totalUsers) });
+    }
     if (path === '/users/me/progress'  && httpMethod === 'GET')    return fromResult(await userSvc.getProgress(userId as never));
 
     if (path === '/inquiries' && httpMethod === 'POST') {

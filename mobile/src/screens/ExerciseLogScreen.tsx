@@ -142,7 +142,7 @@ export default function ExerciseLogScreen() {
 
       const nonStreakBadges = data.newBadges?.filter((b: any) => !b.badgeId?.startsWith('streak_')) ?? [];
       if (nonStreakBadges.length) {
-        Alert.alert('バッジ獲得！', nonStreakBadges.map((b: any) => b.name).join('、'));
+        Alert.alert('トロフィー獲得！', nonStreakBadges.map((b: any) => b.name).join('、'));
       }
       if (data.recovered) {
         Alert.alert('体型回復！', 'アバターの体型が改善しました');

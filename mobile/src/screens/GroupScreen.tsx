@@ -201,7 +201,7 @@ export default function GroupScreen() {
                       <View style={styles.memberInfo}>
                         <Text style={styles.memberName}>{member.displayName || 'ユーザー'}</Text>
                         <Text style={styles.memberMeta}>
-                          🔥 {member.currentDays}日連続  ·  🏅 バッジ {member.badgeCount}個
+                          🔥 {member.currentDays}日連続  ·  🏆 トロフィー {member.badgeCount}個
                         </Text>
                       </View>
                       {i === 0 && <Text style={styles.crownIcon}>👑</Text>}

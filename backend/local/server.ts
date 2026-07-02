@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config();
+dotenv.config({ path: '.env.local', override: true });
 import express, { Request, Response, NextFunction } from 'express';
 import { wrap } from './lambda-adapter';
 import { verifyToken } from '../src/infrastructure/auth/JwtService';
@@ -52,6 +54,7 @@ app.get ('/users/me/goal',         auth, wrap(fnUser as Parameters<typeof wrap>[
 app.post('/users/me/goal',         auth, wrap(fnUser as Parameters<typeof wrap>[0]));
 app.get ('/users/me/streak',       auth, wrap(fnUser as Parameters<typeof wrap>[0]));
 app.get ('/users/me/badges',       auth, wrap(fnUser as Parameters<typeof wrap>[0]));
+app.get ('/badges/stats',          auth, wrap(fnUser as Parameters<typeof wrap>[0]));
 
 app.get ('/avatar',            auth, wrap(fnAvatar as Parameters<typeof wrap>[0]));
 app.get ('/avatar/upload-url', auth, wrap(fnAvatar as Parameters<typeof wrap>[0]));
@@ -90,11 +93,17 @@ app.post('/inquiries',  auth, wrap(fnUser as Parameters<typeof wrap>[0]));
 app.get ('/admin/inquiries',        wrap(fnAdmin as Parameters<typeof wrap>[0]));
 app.patch('/admin/inquiries/status', wrap(fnAdmin as Parameters<typeof wrap>[0]));
 
-app.post('/admin/notifications/send',  wrap(fnAdmin as Parameters<typeof wrap>[0]));
-app.get ('/admin/users',               wrap(fnAdmin as Parameters<typeof wrap>[0]));
-app.get ('/admin/legal',               wrap(fnAdmin as Parameters<typeof wrap>[0]));
-app.get ('/admin/legal/upload-url',    wrap(fnAdmin as Parameters<typeof wrap>[0]));
-app.post('/admin/legal/activate',      wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.post('/admin/login',                         wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.post('/admin/notifications/send',            wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/users',                         wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/stats',                         wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/users/:userId',                 wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/users/:userId/logs',            wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.post('/admin/users/:userId/restore',         wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/trophies',                  wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/legal',                     wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.get ('/admin/legal/upload-url',          wrap(fnAdmin as Parameters<typeof wrap>[0]));
+app.post('/admin/legal/activate',            wrap(fnAdmin as Parameters<typeof wrap>[0]));
 
 app.get('/legal/terms',   wrap(fnLegal as Parameters<typeof wrap>[0]));
 app.get('/legal/privacy', wrap(fnLegal as Parameters<typeof wrap>[0]));

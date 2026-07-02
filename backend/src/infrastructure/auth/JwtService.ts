@@ -31,3 +31,8 @@ export const verifyToken = async (token: string): Promise<TokenPayload> => {
   const secret = await getJwtSecret();
   return jwt.verify(token, secret) as TokenPayload;
 };
+
+export const signAdminToken = async (): Promise<string> => {
+  const secret = await getJwtSecret();
+  return jwt.sign({ sub: 'admin', role: 'admin' }, secret, { expiresIn: '8h' });
+};

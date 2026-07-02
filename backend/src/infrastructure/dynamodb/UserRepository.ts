@@ -58,6 +58,31 @@ export class UserRepository implements IUserRepository, IGoalRepository, IStreak
     }));
   }
 
+  async listAllUsers(): Promise<{ userId: UserId; email?: string; displayName: string; createdAt: string; subscriptionTier: string; hasFcm: boolean; deleted?: boolean }[]> {
+    const items: Record<string, unknown>[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const r = await db.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'SK = :sk',
+        ExpressionAttributeValues: { ':sk': 'PROFILE' },
+        ProjectionExpression: 'PK, email, displayName, createdAt, subscriptionTier, fcmToken, deleted',
+        ExclusiveStartKey: lastKey,
+      }));
+      items.push(...(r.Items ?? []));
+      lastKey = r.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+    return items.map(item => ({
+      userId: (item.PK as string).replace('USER#', '') as UserId,
+      email: item.email as string | undefined,
+      displayName: (item.displayName as string) ?? '',
+      createdAt: item.createdAt as string,
+      subscriptionTier: (item.subscriptionTier as string) ?? 'free',
+      hasFcm: typeof item.fcmToken === 'string' && item.fcmToken.length > 0,
+      deleted: (item.deleted as boolean) ?? false,
+    }));
+  }
+
   async listAllFcmTokens(): Promise<{ userId: UserId; fcmToken: string }[]> {
     const r = await db.send(new ScanCommand({
       TableName: TABLE_NAME,

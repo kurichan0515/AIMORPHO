@@ -21,11 +21,11 @@ import { SubscriptionApplicationService } from '../application/subscription/Subs
 import { SocialApplicationService } from '../application/social/SocialApplicationService';
 
 // Infrastructure
-const userRepo     = new UserRepository();
-const bodyLogRepo  = new BodyLogRepository();
-const mealRepo     = new MealRepository();
-const avatarRepo   = new AvatarRepository();
-const badgeRepo    = new BadgeRepository();
+export const userRepo     = new UserRepository();
+export const bodyLogRepo  = new BodyLogRepository();
+export const mealRepo     = new MealRepository();
+export const avatarRepo   = new AvatarRepository();
+export const badgeRepo    = new BadgeRepository();
 const groupRepo    = new GroupRepository();
 const adviceRepo        = new AdviceRepository();
 const rewardTokenRepo   = new RewardTokenRepository();

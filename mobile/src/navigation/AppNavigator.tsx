@@ -102,7 +102,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Main"        component={MainTabs} />
             <Stack.Screen name="AvatarSetup" component={AvatarSetupScreen}  options={{ headerShown: true, title: 'アバター設定' }} />
-            <Stack.Screen name="Rewards"     component={BadgesScreen}        options={{ headerShown: true, title: 'リワード' }} />
+            <Stack.Screen name="Rewards"     component={BadgesScreen}        options={{ headerShown: true, title: 'トロフィー' }} />
             <Stack.Screen name="BodyEdit"    component={BodyEditScreen}      options={{ headerShown: true, title: '身体データ' }} />
             <Stack.Screen name="TrainingEdit"component={TrainingEditScreen}  options={{ headerShown: true, title: 'トレーニング設定' }} />
             <Stack.Screen name="AICoachEdit" component={AICoachEditScreen}   options={{ headerShown: true, title: 'AIコーチ設定' }} />
